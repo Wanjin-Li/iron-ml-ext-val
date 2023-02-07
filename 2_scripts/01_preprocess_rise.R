@@ -1,7 +1,6 @@
 # Preprocess RISE dataset and create labeled datasets for model training
 
 library(data.table)
-library(ggplot2)
 library(dplyr)
 library(jsonlite)
 library("sas7bdat")
@@ -371,6 +370,12 @@ d.labeled <- d.labeled %>%
     index_log_ferritin = DER_ARUP_log_Ferr,
   )
 
+# add 1 to ferritin
+d.labeled$index_ferritin <- d.labeled$index_ferritin + 1
+d.labeled$index_log_ferritin <- log10(d.labeled$index_ferritin)
+d.labeled$fu_ferritin <- d.labeled$fu_ferritin + 1
+d.labeled$fu_log_ferritin <- log10(d.labeled$fu_ferritin)
+
 # Create 2 datasets ----
 # Dataset 1: index donation (hgb, ferritin present) ---> predict follow up (hgb, ferritin separately)
 # Dataset 2 (more samples): index donation (hgb only, ferritin can be missing) --> predict follow up (hgb, ferritin separately)
@@ -378,11 +383,11 @@ d.labeled <- d.labeled %>%
 # Dataset 1
 # Remove index donations with NA in hgb or with NA in ferritin 
 # Only keep rows with no NAs in hgb and fu_hgb value; same for ferritin
+
 d.hgb_ferr <- d.labeled[!is.na(d.labeled$index_ferritin) &
                          !is.na(d.labeled$index_hgb) & 
                          !is.na(d.labeled$fu_hgb) &
                           !is.na(d.labeled$fu_ferritin)]
-d.hgb_ferr$fu_log_ferritin <- log10(d.hgb_ferr$fu_ferritin)
 summary(d.hgb_ferr$fu_log_ferritin)
 
 # Dataset 2: index donation can have missing ferritin
