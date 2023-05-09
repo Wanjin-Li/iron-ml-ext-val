@@ -226,9 +226,6 @@ head(d.all[, c("RandID", "VisitNum", "donationMade", "cumStudyDonations",
                "DER_RBCLoss_Units", "cumLifetimeDonations", 
                "RQ2_Total_Lifetime_Donations")],20)
 
-# Replace DD_Gender with Gender_F==1 if female, 0 otherwise
-d.all[ , Gender_F := fifelse(DD_Gender=="M", 0, 1, na=NA)]
-
 ## Define features to use; remove other fields
 features_all <- c('DER_RBC_Last12months', 'DER_RBC_Last24months',
                   'DER_RBCLoss_Units', 'DER_RBCLoss_mL', 'DER_DaysRBCLoss', 
@@ -236,7 +233,7 @@ features_all <- c('DER_RBC_Last12months', 'DER_RBC_Last24months',
                   'FingerstickHGB_equiv', 'DD_ABO_RH', 'DER_AdjVenousHgb', 
                   'DER_Weight', 'DER_Height', 'BMI', 'DER_EBV', 
                   'DER_RedCellVolume', 'DER_PercentRBCLoss', 'DER_Age',
-                  'Gender_F', 'DD_Raceth')
+                  'DD_Gender', 'DD_Raceth')
 
 features_fe_as_predictor <- c('ARUP_Ferritin', 'DER_ARUP_log_Ferr')
 
@@ -255,11 +252,11 @@ d.all <- d.all[ , .SD, .SDcols = c(features_all, features_fe_as_predictor,
 d.all[, outcome := 
         fifelse(DER_VisitResult == 3, 1,  # 1 = HGB deferral
                            fifelse(is.na(ARUP_Ferritin), -1,
-                                   fifelse((Gender_F==1 & ARUP_Ferritin < THRESH_ABSENT_FEMALE) |
-                                             (Gender_F==0 & ARUP_Ferritin < THRESH_ABSENT_MALE),
+                                   fifelse((DD_Gender=="F" & ARUP_Ferritin < THRESH_ABSENT_FEMALE) |
+                                             (DD_Gender=="M" & ARUP_Ferritin < THRESH_ABSENT_MALE),
                                            3, # 3 = absent iron donation
-                                           fifelse((Gender_F==1 & ARUP_Ferritin < THRESH_LOW_FEMALE) |
-                                                     (Gender_F==0 & ARUP_Ferritin < THRESH_LOW_MALE),
+                                           fifelse((DD_Gender=="F" & ARUP_Ferritin < THRESH_LOW_FEMALE) |
+                                                     (DD_Gender=="M" & ARUP_Ferritin < THRESH_LOW_MALE),
                                                    2,  # 2 = low iron donation
                                                    0  # 0 = no adverse event
                                            ))))]
@@ -364,7 +361,7 @@ d.labeled <- d.labeled %>%
     red_cell_volume = DER_RedCellVolume,
     percent_rbc_loss = DER_PercentRBCLoss,
     age = DER_Age,
-    sex = Gender_F,
+    sex = DD_Gender,
     race = DD_Raceth,
     index_ferritin = ARUP_Ferritin,
     index_log_ferritin = DER_ARUP_log_Ferr,

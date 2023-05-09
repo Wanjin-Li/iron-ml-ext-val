@@ -9,53 +9,33 @@ library(caret)
 library(dplyr)
 library(data.table)
 
-# ## DATA MUNGING --------
-# 
-# #Creates 3 versions of a given features table: onehot encoded, factor, and interactions
-# gen_features_list <- function(dt, withXB=TRUE){
-#   identifiers <- c("RandID", "VisitDate", "VisitNum", "DER_VisitResult", "DV_Donproc", "DER_RBCLoss_Units")
-#   extra_biomarkers <- c('ARUP_Ferritin', 'ARUP_STR', 'DER_ARUP_log_Ferr',
-#                         'DER_ARUP_log_STfR_Ferr', 'DER_BodyIron')
-#   dt<-rbind(dt)
-#   #remove extraneous fields
-#   dt[, c(identifiers) := NULL]
-#   if(withXB==FALSE){
-#     dt[, c(extra_biomarkers):=NULL]
-#   }
-#   #remove index donations missing hemoglobin
-#   dt<- dt[!is.na(FingerstickHGB_equiv)]
-# 
-# 
-#   #remove index donations missing hemoglobin
-#   dt<- dt[!is.na(FingerstickHGB_equiv)]
-#   dt.OH <- data.table(model.matrix(fu_outcome ~ ., data=dt))
-#   dt.OH <- cbind(dt.OH,
-#                  "fu_outcome" = dt$fu_outcome)
-#   #Fields "gender_menstrating_cohortsM" "DD_GenderM"  the same due to one-hot encoding. removing the menstrating one.
-#   dt.OH <- dt.OH[ , gender_menstrating_cohortsM := NULL]
-# 
-#   #CHAR as FACTOR
-#   #Convert all characters to factors
-#   char_cols <- colnames(dt)[unlist(dt[ , lapply(.SD, is.character),][1,])]
-# 
-#   for (col in char_cols) set(dt, j=col, value=as.factor(dt[[col]]))
-#   #str(dt)
-#   #Make fu_outcome factor
-#   dt[, fu_outcome := as.factor(paste0("Z", fu_outcome))]
-# 
-#   ## INTERACTIONS (all patients)
-#   f <- as.formula(y ~ .*.)
-#   y <- dt.OH$fu_outcome
-#   # Second step: using model.matrix to take advantage of f
-#   #dt.interactions <- data.table(model.matrix(f, dt.OH[,c(-1, -1*ncol(dt.OH))]))
-#   dt.interactions <- data.table(model.matrix(f, dt.OH[,c(-1, -53)]))
-#   dt.interactions <- cbind(dt.interactions, "fu_outcome" = dt.OH$fu_outcome)
-# 
-#   return(list("OH"=dt.OH,
-#               "Ints"=dt.interactions,
-#               "factor"=dt))
-# 
-# }
+## DATA MUNGING --------
+
+#Creates 3 versions of a given features table: onehot encoded, factor, and interactions
+gen_features_list <- function(dt, version){
+  dt.md <- dt
+  # str(dt.md)
+  
+  # set Gender_F as character since loads in as int
+  dt.md$sex <- as.character(dt.md$sex)
+  
+  # Create 2 versions: one with characters as factors and
+  # one with categorical variables 1-hot encoded for model types that require that
+  
+  # One hot encoding for XGB -----
+  # Create dummy one-hot variables for categoricals
+  dt.OH <- data.table(model.matrix(fu_outcome ~ ., data=dt.md))
+  dt.OH <- cbind(dt.OH, "fu_outcome" = dt.md$fu_outcome)
+  
+  # Code all Character as Factor -----
+  colnames(dt.md)[unlist(dt.md[ , lapply(.SD, is.character),][1,])]
+  dt.md <- dt.md %>% mutate_if(is.character, as.factor)
+  # str(dt.md)
+  
+  return(list("OH"=dt.OH,
+              "factor"=dt.md))
+
+}
 
 # ## DATA PROCESSING ----
 
@@ -104,7 +84,7 @@ run_mod_assess <- function(mod_name, param_sets, dt_split,
   #                          rmse_res_cols)
   dt.results.rmspe <- cbind(data.table(model = character(), 
                                       hyperparam_idx = integer()),
-                           rmspe_res_cols)
+                            rmspe_res_cols)
   # dt.results.mae <- cbind(data.table(model = character(), 
   #                                    hyperparam_idx = integer()),
   #                         mae_res_cols)
@@ -272,7 +252,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
     # generate predictions
     preds = as.data.table(predict(rf_fit, test_data))
     
-    #TODO: if statement check
     if(return_train_pred==TRUE){  # for ensemble training only
       pred_train <- as.data.table(predict(rf_fit, train_data))
       preds<-rbind(cbind(Set="Train", pred_train), cbind(Set="Test", preds))
@@ -284,8 +263,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
       colnames(preds) <- paste0("prediction")
       fu_outcome = test_data[,"fu_outcome"]   # fu_hgb, fu_log_ferritin
     }
-    
-    
     
     #ELASTIC NET (NO INTERACTIONS)
   } else if (mod_name == "EN"){
@@ -365,20 +342,18 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
 #GBM uses dt_split_xgb
 #EN (no interaction) uses dt_split_xgb
 
-mod_spec_as_list <- function(mod_id, pred_task="pred_hgb"){
-  # XGB.1406 -> XGB
-  mod_id_split <- unlist(str_split(mod_id, "\\."))  
+mod_spec_as_list <- function(mod_id, biomarkers){
+  mod_id_split <- unlist(str_split(mod_id, "\\."))  #     # XGB.1406 -> XGB
   mod_name <-mod_id_split[1]  
   hyperparam_idx <- as.numeric(mod_id_split[2])
-  print(mod_name)
   if (mod_name == "XGB"){
-    dt_split <- get(paste0("rsplit_OH_", pred_task))
+    dt_split <- get(paste0("rsplit_OH_", biomarkers))
     hyperparams <- as.list(xgb_param_sets[hyperparam_idx, ])
   } else if (mod_name=="RF"){
-    dt_split <- get(paste0("rsplit_factors_",pred_task))
+    dt_split <- get(paste0("rsplit_factors_", biomarkers))
     hyperparams <- as.list(rf_param_sets[hyperparam_idx, ])
   } else if (mod_name=="EN"){
-    dt_split <- get(paste0("rsplit_OH_",pred_task))
+    dt_split <- get(paste0("rsplit_factors_", biomarkers))
     hyperparams <- as.list(en_param_sets[hyperparam_idx, ])
   } 
   return(list(mod_name=mod_name,
@@ -387,10 +362,12 @@ mod_spec_as_list <- function(mod_id, pred_task="pred_hgb"){
 }
 
 ##ENSEMBLE MODEL ASSESSMENT
-run_ensemble_assess <- function(base_model_specs, path = "./data/", version="withXB",
+run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensemble/", ensemble_config="NA", version="hgb_ferr_predict_ferr",
                                 ensemble_type="average"){
+  
   outcome<-list()
   outcome_base_mods <- list()
+  EPSILON <- 1e-10  # for RMSPE to prevent division by 0
 
   for (row_outer in 1:nrow(base_model_specs[[1]]$dt_split)){  # 1:15
     # Table to store predictions across each outer fold
@@ -412,6 +389,7 @@ run_ensemble_assess <- function(base_model_specs, path = "./data/", version="wit
         "fu_outcome"= numeric()
       )
       # Train base models
+      
       for (base_model_idx in 1:length(base_model_specs)){  # number of base models
         # Generate predictions on single inner fold
         # Keep raw predictions from both train and test data within the fold
@@ -425,73 +403,69 @@ run_ensemble_assess <- function(base_model_specs, path = "./data/", version="wit
                          return_train_pred=TRUE))
         )
       }
-
       dt_single_fold_preds[, donor_idx := rep(1:(nrow(dt_single_fold_preds)/length(base_model_specs)), length(base_model_specs))]
-      dt_single_fold_preds[ , prediction := paste0("Z",max.col(dt_single_fold_preds[,3:6])-1)]
-      train_acc_in_fold <- dt_single_fold_preds[Set=="Train", list("train_acc"=sum(prediction==fu_outcome)/.N), by=base_model]
+      # train_res_in_fold <- dt_single_fold_preds[Set=="Train", list("train_res"=sum(prediction)/.N), by=base_model]
       
-      dt_single_fold_preds<-dt_single_fold_preds[train_acc_in_fold, on="base_model"]
+      # dt_single_fold_preds<-dt_single_fold_preds[train_res_in_fold, on="base_model"]
       dt_inner_fold_preds_base<-rbind(dt_inner_fold_preds_base,
                                       dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
       
-      # model average
+      # model average: for each datapoint, get the average over all model predictions. e.g., if 6 models, then averaging over 6 predictions for each datapoint
       dt_inner_fold_preds<-rbind(dt_inner_fold_preds,
                                  dt_single_fold_preds[Set=="Test", list(
-                                   "Z0"=mean(Z0),
-                                   "Z1"=mean(Z1),
-                                   "Z2"=mean(Z2),
-                                   "Z3"=mean(Z3),
-                                   "fu_outcome"=min(fu_outcome)),
+                                   "prediction"=mean(prediction),  
+                                   "fu_outcome"=mean(fu_outcome)),
                                    by=donor_idx])
-    
-
     }
-    #Calc 1vsAll AUC across all folds for ensemble
-    outcome[paste0("AUC_",formatC(row_outer, width=2, flag="0"))] <-
-      multiclass.roc(fu_outcome~Z0+Z1+Z2+Z3, data = dt_inner_fold_preds)$auc
+    rmspe <- (sqrt(mean(((dt_inner_fold_preds$fu_outcome - dt_inner_fold_preds$prediction) / (dt_inner_fold_preds$fu_outcome + EPSILON))**2))) * 100
+    
+    outcome[paste0("rmspe_repeat",
+                   formatC(ceiling(row_outer/5)),
+                   "_fold",
+                   formatC((row_outer-1)%%5 + 1))] <- rmspe
+    
     print(paste0("outer fold complete: ",row_outer))
-    outcome_base_mods[[paste0("AUC_",formatC(row_outer, width=2, flag="0"))]] <-
-      dt_inner_fold_preds_base[, list("AUC"=AUC(Z0, Z1, Z2, Z3, fu_outcome)), by=base_model]
+    
+    outcome_base_mods[[paste0("rmspe_repeat",
+                              formatC(ceiling(row_outer/5)),
+                              "_fold",
+                              formatC((row_outer-1)%%5 + 1))]] <- dt_inner_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
   }
-
-  ####
+  
   dt.results <- as.data.table(outcome)
-  dt.results[ , AUC_mean := rowMeans(.SD), .SDcols =
-                paste0("AUC_",formatC(1:15, width=2, flag="0"))]
-
+  dt.results[ , res_mean := rowMeans(.SD), .SDcols =  # get mean over all folds (average across all cols in the row)
+                paste0("rmspe_repeat",
+                       formatC(ceiling(1:15/5)),
+                       "_fold",
+                       formatC((1:15-1)%%5 + 1))]
+  
   dt.results_basemods <- as.data.table(outcome_base_mods)
-
-  fwrite(dt.results, paste0(path, paste0("ensemble_assess_results_3RF3GBM_",version,"_", ensemble_type,".csv")))
-  fwrite(dt.results_basemods, paste0(path, paste0("ensemble_basemods_assess_results_3RF3GBM_",version,"_", ensemble_type,".csv")))
-
+  
+  fwrite(dt.results, paste0(path, paste0("ensemble_assess_results_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
+  fwrite(dt.results_basemods, paste0(path, paste0("ensemble_basemods_assess_results_", ensemble_config, "_",version,"_", ensemble_type,".csv")))
 }
 
 
-
-outer_fold_assess <- function(base_mod_spec,
-                              path = "./data/", version="withXB"){
-
-  top_model_aucs <- list()
-
+# Assess top model that is a single model only (not an ensemble)
+outer_fold_assess <- function(base_mod_spec, 
+                              path = "./3_intermediate/ensemble/",
+                              ensemble_config="",
+                              version="hgb_ferr_predict_ferr",
+                              ensemble_type="average"){
+  
   dt_preds_all_repeats <- data.table(
     "rpt" = numeric(),
     "fold" = numeric(),
-    "Z0"= numeric(),
-    "Z1"= numeric(),
-    "Z2"= numeric(),
-    "Z3"= numeric(),
+    "prediction"= numeric(),
     "fu_outcome"= numeric()
   )
-
+  
   Sys.time()
   for (idx_rpt in 1:3){
     #Table to store predictions across each fold of each resample
     dt_rpt_preds <- data.table(
       "fold" = numeric(),
-      "Z0"= numeric(),
-      "Z1"= numeric(),
-      "Z2"= numeric(),
-      "Z3"= numeric(),
+      "prediction"= numeric(),
       "fu_outcome"= numeric()
     )
     for (idx_fld in 1:5){
@@ -505,61 +479,46 @@ outer_fold_assess <- function(base_mod_spec,
                    base_mod_spec$mod_name,
                    return_train_pred=FALSE)
         ))
-
+      
       print(paste0("Fold ", idx_fld, " Repeat ", idx_rpt, " complete ",Sys.time()))
     }
     dt_preds_all_repeats <- rbind(dt_preds_all_repeats,
-                                  cbind(
-                                    "rpt" = idx_rpt,
-                                    dt_rpt_preds))
-    #Calc 1vsAll AUC across all folds
-    top_model_aucs[paste0("AUC_",formatC(idx_rpt, width=2, flag="0"))] <- multiclass.roc(fu_outcome~Z0+Z1+Z2+Z3, data = dt_rpt_preds)$auc
+                                  cbind("rpt" = idx_rpt, dt_rpt_preds))
   }
-  fwrite(dt_preds_all_repeats, file = paste0(path,
-                                             "top_model_assess_",
-                                             version,
-                                             ".csv"))
-  #dt_preds_all_repeats[ , multiclass.roc(fu_outcome~Z0+Z1+Z2+Z3)$auc, by= c("rpt")]
+  fwrite(dt_preds_all_repeats, 
+         file=paste0(path, paste0("top_model_assess_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
 }
 
 
-
-outer_fold_assess_ensemble <- function(base_model_specs,
-                                       path = "./data/", version="withXB"){
-  #SIMPLE MODEL AVG- NOW CAWPE
-  top_model_aucs <- list()
-
+# Assess ensemble model on outer folds (3 repeats of fold CV)
+outer_fold_assess_ensemble <- function(base_model_specs, 
+                                       path = "./3_intermediate/ensemble/",
+                                       ensemble_config="",
+                                       version="hgb_ferr_predict_ferr",
+                                       ensemble_type="average"){
+  
   dt_preds_all_repeats <- data.table(
     "rpt" = numeric(),
     "fold" = numeric(),
     "donor_idx"=numeric(),
-    "Z0"= numeric(),
-    "Z1"= numeric(),
-    "Z2"= numeric(),
-    "Z3"= numeric(),
+    "prediction"= numeric(),
     "fu_outcome"= numeric()
   )
-
+  
   Sys.time()
   for (idx_rpt in 1:3){
     #Table to store predictions across each fold of each resample
     dt_rpt_preds <- data.table(
       "fold" = numeric(),
       "donor_idx"=numeric(),
-      "Z0"= numeric(),
-      "Z1"= numeric(),
-      "Z2"= numeric(),
-      "Z3"= numeric(),
+      "prediction"= numeric(),
       "fu_outcome"= numeric()
     )
     for (idx_fld in 1:5){
       #Table to store predictions across each inner fold
       dt_single_fold_preds <- data.table(
         "base_model" = character(),
-        "Z0"= numeric(),
-        "Z1"= numeric(),
-        "Z2"= numeric(),
-        "Z3"= numeric(),
+        "prediction"= numeric(),
         "fu_outcome"= numeric()
       )
       #Train base models
@@ -570,8 +529,8 @@ outer_fold_assess_ensemble <- function(base_model_specs,
         rsplit_obj<-filter(base_model_specs[[base_model_idx]]$dt_split,
                            id==paste0("Repeat",idx_rpt) &
                              id2==paste0("Fold",idx_fld))$splits[[1]]
-
-
+        
+        
         dt_single_fold_preds <- rbind(
           dt_single_fold_preds,
           cbind("base_model" = names(base_model_specs)[base_model_idx],
@@ -581,90 +540,67 @@ outer_fold_assess_ensemble <- function(base_model_specs,
                          return_train_pred=FALSE))
         )
       }
-
+      
       dt_single_fold_preds[, donor_idx := rep(1:(nrow(dt_single_fold_preds)/length(base_model_specs)), length(base_model_specs))]
-
-      #model average
+      
+      #model simple average
       dt_rpt_preds<-rbind(dt_rpt_preds,
                           cbind("fold"=idx_fld,
                                 dt_single_fold_preds[, list(
-                                  "Z0"=mean(Z0),
-                                  "Z1"=mean(Z1),
-                                  "Z2"=mean(Z2),
-                                  "Z3"=mean(Z3),
-                                  "fu_outcome"=min(fu_outcome)),
+                                  "prediction"=mean(prediction),
+                                  "fu_outcome"=mean(fu_outcome)),
                                   by=donor_idx]))
-
+      
       print(paste0("Fold ", idx_fld, " Repeat ", idx_rpt, " complete ",Sys.time()))
     }
     dt_preds_all_repeats <- rbind(dt_preds_all_repeats,
-                                  cbind(
-                                    "rpt" = idx_rpt,
-                                    dt_rpt_preds))
-    #Calc 1vsAll AUC across all folds
-    #top_model_aucs[paste0("AUC_",formatC(idx_rpt, width=2, flag="0"))] <- multiclass.roc(fu_outcome~Z0+Z1+Z2+Z3, data = dt_rpt_preds)$auc
+                                  cbind("rpt" = idx_rpt, dt_rpt_preds))
   }
-  fwrite(dt_preds_all_repeats, file = paste0(pafth,
-                                             "top_model_assess_",
-                                             version,
-                                             ".csv"))
+  fwrite(dt_preds_all_repeats, 
+         file=paste0(path, paste0("top_model_assess_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
 }
 
 
-train_mod <- function(mod_name,
-                      params,
-                      features){
+train_mod <- function(mod_name, params, features) {
   if (mod_name=="XGB"){
-    features[, fu_outcome := as.numeric(ifelse(nchar(fu_outcome)==2,
-                                               substr(fu_outcome, 2, 2),fu_outcome))]
-
     #Extract train and test sets in xgb's special format
     train_matrix = xgb.DMatrix(data = as.matrix(features[,-"fu_outcome"]),
                                label = as.matrix(features[,"fu_outcome"]))
-    model=xgb.train(
-      params=params,
-      data=train_matrix,
-      nrounds=10000,
-      early_stopping_rounds=10,
-      watchlist=list(val1=train_matrix),
-      verbose=0,
-      booster="gbtree",
-      gamma=3,
-      objective="multi:softprob",
-      eval_metric="mlogloss",
-      num_class=4
-    )
-  } else if (mod_name=="random_forest"){
-    model=randomForest(
-      fu_outcome~.,
-      data = features,
-      nodesize = params$nodesize,
-      ntree = params$ntree,
-      replace = params$replace
-    )
-  } else if (mod_name=="elastic_net"){
-    model=glmnet(
-      x = as(data.matrix(features[,-"fu_outcome"]), "dgCMatrix"),
-      y = features$fu_outcome,
-      lambda = params$lambda,
-      alpha = params$alpha,
-      family="multinomial"
-    )
-  } else if (mod_name=="elastic_net_interactions"){
-    model=glmnet(
-      x = as(data.matrix(features[,-"fu_outcome"]), "dgCMatrix"),
-      y = features$fu_outcome,
-      lambda = params$lambda,
-      alpha = params$alpha,
-      family="multinomial"
-    )
-  }
+    set.seed(250)  # set the seed for reproducibility
+    model=xgb.train(params=params,
+                    data=train_matrix,
+                    nrounds=10000,
+                    early_stopping_rounds=10,
+                    watchlist=list(val1=train_matrix),
+                    verbose=0,
+                    booster="gbtree",
+                    gamma=3,
+                    objective = "reg:squarederror",
+                    eval_metric="rmse")
+    
+  } else if (mod_name=="RF"){
+    set.seed(250)
+    model=randomForest(fu_outcome~.,
+                       data = features,
+                       nodesize = params$nodesize,
+                       mtry=params$mtry,
+                       ntree = params$ntree,
+                       replace = params$replace)
+    
+  } else if (mod_name=="EN"){
+    set.seed(250)
+    model=glmnet(x = as(data.matrix(features[,-"fu_outcome"]), "dgCMatrix"),
+                 y = features$fu_outcome,
+                 lambda = params$lambda,
+                 alpha = params$alpha,
+                 family="gaussian")  # gaussian for regression
+  } 
   return(model)
 }
 
 
 
-# FEATURE IMORTANCE ----------------------
+# FEATURE IMPORTANCE ----
 
 
 #Function for calculating overall AUC and each one-vs-rest AUC
@@ -685,60 +621,55 @@ auc_calcs <- function(dt.scores){
 }
 
 # Generate feature list, run  ensemble, return AUCs
-gen_metric_row<-function(base_mods,
-                         test_data,
-                         idx_rpt, idx_fld, feat_name){
+gen_metric_row<-function(base_mods, test_data, idx_rpt, idx_fld, feat_name){
   #Generate risk scores on test data - no perturbations
-  risk_scores <- risk_scores_ensemble(features_list=gen_features_list(test_data),
-                                      base_mods = base_mods)
-
-  risk_scores<-cbind(risk_scores,
-                     "fu_outcome"=test_data$fu_outcome)
-
-  risk_scores[ , prediction := paste0("Z",max.col(risk_scores[,2:5])-1)]
+  risk_scores <- risk_scores_ensemble(features_list=gen_features_list(test_data), base_mods=base_mods)  # 3 cols: donor_idx, prediction, fu_outcome
+  
+  print(risk_scores)
+  stop()
+  # risk_scores<-cbind(risk_scores, "fu_outcome"=test_data$fu_outcome)
+  # 
+  # risk_scores[ , prediction := paste0("Z",max.col(risk_scores[,2:5])-1)]
 
 
   #Calc metrics and append to table
-  AUCs <- suppressMessages(auc_calcs(risk_scores))
-  acc <- risk_scores[, sum(prediction==fu_outcome)/.N]
+  
+  EPSILON <-  1e-10  # prevent division by zero
+  rmspe <- (sqrt(mean(((risk_scores$fu_outcome - risk_scores$prediction) / (risk_scores$fu_outcome + EPSILON))**2))) * 100
+  
+  output = c(idx_rpt, idx_fld, feat_name, rmspe)
 
-  output = c(idx_rpt, idx_fld, feat_name,
-             unlist(AUCs),
-             acc)
   return(t(output))
 }
 
 
 
-
-##Performing varaible importance across all model selection partitions
-# Using the permutation method
-ensemble_feature_importance <- function(base_model_specs, dt,
-                                        path = "./1_data/",version="noXB"){
+# Performing variable importance across all model selection partitions using the permutation method
+ensemble_feature_importance <- function(base_model_specs, 
+                                        dt,
+                                        path = "./3_intermediate/feature_importance/main_model/",
+                                        configs,
+                                        version="hgb_ferr_predict_hgb") {
   #data table to store results
-  dt_feat_metrics <- data.table(
-    "rpt" = numeric(),
-    "fold" = numeric(),
-    "feature"=numeric(),
-    "AUC_multi"= numeric(),
-    "AUC0vall"= numeric(),
-    "AUC1vall"= numeric(),
-    "AUC2vall"= numeric(),
-    "AUC3vall"= numeric(),
-    "accuracy"= numeric()
-  )
-
+  dt_feat_metrics <- data.table("rpt" = numeric(), 
+                                "fold" = numeric(),
+                                "feature"=numeric(),
+                                "res"=numeric())
+  
+  lookup <- c(fu_outcome = "fu_hgb", fu_outcome = "fu_log_ferritin")
+  dt <- dt %>% dplyr::rename(any_of(lookup))
+  
   #rsplit
   set.seed(250)
   rsplit_unformatted <- nested_cv(dt,
-                                  outside = vfold_cv(v=5, repeats=3, strata="fu_outcome"),
-                                  inside = vfold_cv(v=5, strata="fu_outcome"))
+                                  outside = vfold_cv(v=5, repeats=3),
+                                  inside = vfold_cv(v=5))
   feat_names <- colnames(dt[,-"fu_outcome"])
-
+  
   Sys.time()
   for (idx_rpt in 1:3){
     for (idx_fld in 1:5){
-      #Generate trianing data
+      #Generate training data
       train_data <- data.table(
         analysis(
           filter(
@@ -747,71 +678,54 @@ ensemble_feature_importance <- function(base_model_specs, dt,
               id2==paste0("Fold",idx_fld))$splits[[1]]
         ))
       features_list <- gen_features_list(train_data)
-
-
+      
+      
       #Train base models
       base_mods<-list()
       for (mod in names(base_model_specs)){
         print(mod)
         #extract model type and hyperparam set from id
-        mod_id_split <- unlist(str_split(mod, "\\."))
-        mod_name <-mod_id_split[1]
-
+        mod_id_split <- unlist(str_split(mod, "\\."))  
+        mod_name <-mod_id_split[1]  # XGB.4066 -> XGB
+        
         # #Extract training data for model assessment partition
         # rsplit_obj<-filter(base_model_specs[[mod]]$dt_split,
         #                    id==paste0("Repeat",idx_rpt) &
         #                      id2==paste0("Fold",idx_fld))$splits[[1]]
-
-
-        if(mod_name=="elastic_net_interactions"){
-          features = features_list$Ints
-        } else if(mod_name=="random_forest"){
-          features = features_list$factor
-        } else{
-          features = features_list$OH
+        
+        if(mod_name == "XGB"){
+          features <- features_list$OH
+        } else{  # RF, EN
+          features <- features_list$factor
         }
-
-
-        #Develop base model
+        
+        # Develop base model
         base_mods[[mod]] <- train_mod(mod_name,
                                       params = base_model_specs[[mod]]$hyperparams,
                                       features = features)
       }
-
+      
       #Extract test set for model assessment partition
       test_data <- data.table(
         assessment(
-          filter(
-            rsplit_unformatted,
-            id==paste0("Repeat",idx_rpt) &
-              id2==paste0("Fold",idx_fld))$splits[[1]]
-        ))
-
-
+          filter(rsplit_unformatted,
+                 id==paste0("Repeat",idx_rpt) &
+                   id2==paste0("Fold",idx_fld))$splits[[1]]))
+      
       #append baseline metrics to table
       dt_feat_metrics <- rbind(dt_feat_metrics,
-                               gen_metric_row(base_mods, test_data,
-                                              idx_rpt, idx_fld, "baseline"),
+                               gen_metric_row(base_mods, test_data, idx_rpt, idx_fld, "baseline"),
                                use.names=FALSE)
-
-      #loop over features to perturb and calculate performance
-      for (idx_feat in 1:(ncol(dt)-1)){
+      
+      for (idx_feat in 1:(ncol(dt)-1)){ # loop over features to perturb and calculate performance
         #shuffle selected feature
         dt_temp <- cbind(test_data)[,feat_names[idx_feat] := sample(get(feat_names[idx_feat]),replace=FALSE)]
         #Run model and calculate risk scores
         dt_feat_metrics <- rbind(dt_feat_metrics,
-                                 gen_metric_row(base_mods, dt_temp,
-                                                idx_rpt, idx_fld,
-                                                feat_names[idx_feat]),
+                                 gen_metric_row(base_mods, dt_temp, idx_rpt, idx_fld, feat_names[idx_feat]),
                                  use.names=FALSE)
       }
-
-
-
-      fwrite(dt_feat_metrics, file = paste0(path,
-                                            "feature_importance_",
-                                            version,
-                                            ".csv"))
+      fwrite(dt_feat_metrics, file = paste0(path, configs, "_", version, ".csv"))
       print(paste0("Fold ", idx_fld, " Repeat ", idx_rpt, " complete ",Sys.time()))
     }
   }
@@ -830,19 +744,24 @@ ensemble_feature_importance <- function(base_model_specs, dt,
 #Generate uncalibrated scores from a model object, name, and features
 raw_scores <- function(mod_name, model, features){
   if (mod_name=="XGB"){
+    set.seed(250)
     xgb.test = xgb.DMatrix(data = as.matrix(features[,-"fu_outcome"]),
                            label = as.matrix(features[,"fu_outcome"]))
     preds = as.data.table(predict(model, xgb.test, reshape = T))
-  } else if (mod_name=="random_forest"){
-    preds = as.data.table(predict(model, features, type="prob"))
-  } else if (mod_name=="elastic_net"){
-    preds = as.data.table(predict(model, newx = data.matrix(features[,-"fu_outcome"]), type = "response")[,,1])
-  } else if (mod_name=="elastic_net_interactions"){
-    preds = as.data.table(predict(model, newx = data.matrix(features[,-"fu_outcome"]), type = "response")[,,1])
-  }
-  colnames(preds)<-paste0("Z",0:3)
-  return(preds)
+  } else if (mod_name=="RF"){
+    set.seed(250)
+    preds = as.data.table(predict(model, features))
+  } else if (mod_name=="EN"){
+    set.seed(250)
+    X_test <- data.matrix(features[ , -"fu_outcome"])  # remove last column (outcome)
+    preds = as.data.table(predict(model, newx = X_test))
+  } 
+  colnames(preds) <- paste0("prediction")
+  fu_outcome = unlist(features[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
+  results <- cbind(preds,fu_outcome)
+  return(results)
 }
+
 
 weight_score <- function(preds, weights){
   preds[, Q0 := weights[1]*Z0/( weights[1]*Z0+ weights[2]*Z1+ weights[3]*Z2+ weights[4]*Z3)]
@@ -898,47 +817,59 @@ risk_scores_rf <- function(features,
 
 
 
-risk_scores_ensemble <- function(features_list, #3 versions: OH=one hot,
-                                 #  factor, Ints=onehot with interaction terms
-                                 base_mods, #LIST OF MODELS WITH MODID AS NAME
+risk_scores_ensemble <- function(features_list,  # 2 versions: OH=one hot, factor
+                                 base_mods,  #LIST OF MODELS WITH mod_id AS NAME
                                  weights = NA,
                                  incl_base_preds=FALSE){
-  dt_base_preds <- data.table(
-    "base_model" = character(),
-    "Z0"= numeric(),
-    "Z1"= numeric(),
-    "Z2"= numeric(),
-    "Z3"= numeric()
-  )
+  
+  dt_base_preds <- data.table("base_model" = character(), "prediction"=numeric(), "fu_outcome"= numeric())
 
-  #Gen predictions for each base model
+  # Gen predictions for each base model
   for (base_mod_idx in 1:length(base_mods)){
     #extract model name
     mod_name <- unlist(strsplit(names(base_mods)[base_mod_idx], "\\."))[1]
-    if(mod_name=="elastic_net_interactions"){
-      features = features_list$Ints
-    } else if(mod_name=="random_forest"){
-      features = features_list$factor
-    } else{
-      features = features_list$OH
-    }
+    if(mod_name=="XGB"){ features = features_list$OH } else{ features = features_list$factor }
+    
     #Generate raw (uncallibrated) scores and concat
-
     dt_base_preds <- rbind(
       dt_base_preds,
       cbind("base_model" = names(base_mods)[[base_mod_idx]],
             raw_scores(mod_name,
                        base_mods[[base_mod_idx]], features)))
   }
-
+  # print(dt_base_preds)
+  #     base_model prediction fu_outcome
+  # 1:   XGB.4066   12.74841   13.15789
+  # 2:   XGB.4066   12.80722   11.84211
+  # 3:   XGB.4066   13.26275   13.81579
+  # 4:   XGB.4066   13.04470   13.15789
+  # 5:   XGB.4066   13.04760   12.82895
+  # ---                                 
+  # 3146:     RF.208   12.46228   13.15789
+  # 3147:     RF.208   13.72977   16.80000
+  # 3148:     RF.208   14.58893   14.14474
+  # 3149:     RF.208   12.64662   12.17105
+  
   dt_base_preds[,donor_idx := rep(1:(nrow(dt_base_preds)/base_mod_idx), base_mod_idx)]
+  
+  # print(dt_base_preds)
+  #     base_model prediction fu_outcome donor_idx
+  # 1:   XGB.4066   12.74841   13.15789         1
+  # 2:   XGB.4066   12.80722   11.84211         2
+  # 3:   XGB.4066   13.26275   13.81579         3
+  # 4:   XGB.4066   13.04470   13.15789         4
+  # 5:   XGB.4066   13.04760   12.82895         5
+  # ---                                           
+  # 3146:     RF.208   12.46228   13.15789       521
+  # 3147:     RF.208   13.72977   16.80000       522
+  # 3148:     RF.208   14.58893   14.14474       523
+  # 3149:     RF.208   12.64662   12.17105       524
+  # 3150:     RF.208   12.76384   12.50000       525
+  
   #model average
-  dt_ensemb_pred <- dt_base_preds[, list(
-    "Z0"=mean(Z0),
-    "Z1"=mean(Z1),
-    "Z2"=mean(Z2),
-    "Z3"=mean(Z3)),
-    by=donor_idx]
+  dt_ensemb_pred <- dt_base_preds[, list("prediction"=mean(prediction),
+                                         "fu_outcome"=mean(fu_outcome)),
+                                         by=donor_idx]
 
   if(incl_base_preds==TRUE){
     if(is.na(weights)){

@@ -62,6 +62,7 @@ save_cv_split <- function(df, file_path) {
 
 for (dat_path in dat_paths) {
   dt.md <- fread(dat_path)  #"./3_intermediate/private/hgb_ferr_rise.csv")
+  # dt.md <- fread( "./3_intermediate/private/hgb_ferr_rise.csv")
   # dt.md <- fread( "./3_intermediate/private/hgb_only_rise.csv")
   
   str(dt.md)
@@ -70,7 +71,10 @@ for (dat_path in dat_paths) {
   dt.md$sex <- as.character(dt.md$sex)
   
   ## Remove race variable ----
-  identifiers <- c("RandID", "VisitDate", "VisitNum", "race")
+  identifiers <- c("RandID", "VisitDate", "VisitNum", 
+                   "rbc_loss_in_ml",
+                   "weight", "height", "bmi", "ebv", "red_cell_volume", "percent_rbc_loss", 
+                   "race")
   
   #remove extraneous fields
   dt.md[, c(identifiers) := NULL]
@@ -195,7 +199,7 @@ rf_param_sets <- expand.grid(
 )
 fwrite(rf_param_sets, "./3_intermediate/hyperparameters/rf_hyperparameters.csv")
 
-# ELASTICNET - 1050 hyperparams
+# ELASTICNET - 1051 hyperparams
 en_param_sets <- rbind(
   data.table(alpha=0, lambda=0),
   expand.grid(
