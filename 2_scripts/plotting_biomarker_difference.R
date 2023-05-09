@@ -174,12 +174,13 @@ bp2 <- ggplot(data = res_all_3, aes(x = time_to_fu, y = percent, group = id, col
   ylab("Percent change")+
   xlab("Time to follow up (days)")+
   geom_point(size=0.1)+
-  geom_line(size = 0.3, alpha = 0.1)
+  geom_line(size = 0.3, alpha = 0.1)+
+  theme(legend.position = "none")  # no legend
 
 
 bp2 + facet_grid(. ~ biomarker)
 
-# ggsave("./4_output/figs/suppfig3_slope_graph.svg")
+ggsave("./4_output/figs/suppfig3_slope_graph.svg")
 
 
 # Plotting histograms variability ----
