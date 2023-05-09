@@ -9,6 +9,7 @@ local
 3_intermediate/rsplits
 3_intermediate/model_dev_data
 3_intermediate/slurm_output
+3_intermediate/tune_results
 4_output/private
 4_output/figs
 5_manuscript
