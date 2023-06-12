@@ -267,20 +267,33 @@ hgb_only_predict_hgb <- data.frame(Cohort  = cohort,
                                    data_version = c("Hemoglobin only"))
 hgb_ferr_predict_ferr <- data.frame(Cohort  = cohort,
                                     RMSPE = c(r_hf_f_rmspe, v_hf_f_rmspe, s_hf_f_rmspe, sq_hf_f_rmspe),
-                                    predict_biomarker = c("Ferritin"),
+                                    predict_biomarker = c("Log10 Ferritin"),
                                     data_version = c("Hemoglobin and Ferritin"))
 hgb_only_predict_ferr <- data.frame(Cohort  = cohort,
                                     RMSPE = c(r_h_f_rmspe, v_h_f_rmspe, s_h_f_rmspe, sq_h_f_rmspe),
-                                    predict_biomarker = c("Ferritin"),
+                                    predict_biomarker = c("Log10 Ferritin"),
                                     data_version = c("Hemoglobin only"))
 
 main_df <- rbind(hgb_ferr_predict_hgb, hgb_only_predict_hgb, hgb_ferr_predict_ferr, hgb_only_predict_ferr)
 
-main_df$Cohort <- factor(main_df$Cohort, levels = c("RISE", "Vitalant", "SANBS", "Sanquin"))
-main_df$predict_biomarker <- factor(main_df$predict_biomarker, levels = c("Ferritin","Hemoglobin"))
+# Convert values in the "Cohort" column
+main_df <- main_df %>%
+  mutate(Cohort = case_when(
+    Cohort == "RISE" ~ "Training",
+    Cohort == "SANBS" ~ "South Africa",
+    Cohort == "Sanquin" ~ "Netherlands",
+    Cohort == "Vitalant" ~ "US",
+    TRUE ~ Cohort
+  ))
+
+# Print the modified dataframe
+print(main_df)
+
+main_df$Cohort <- factor(main_df$Cohort, levels = c("Training", "US", "South Africa", "Netherlands"))
+main_df$predict_biomarker <- factor(main_df$predict_biomarker, levels = c("Hemoglobin","Log10 Ferritin"))
 main_df$data_version <- factor(main_df$data_version, levels = c("Hemoglobin and Ferritin", "Hemoglobin only"))
 
-# Plot RMSPE ----
+# Plot FIGURE 3 RMSPE ----
 
 
 p <- ggplot(main_df, aes(x=Cohort, y=RMSPE, fill=Cohort))+
@@ -289,16 +302,25 @@ p <- ggplot(main_df, aes(x=Cohort, y=RMSPE, fill=Cohort))+
       scale_y_continuous(expand=c(0,0), limits = c(0,37))+  # set y limit
       facet_grid(predict_biomarker ~ data_version)+
       theme(text = element_text(size = 14),  # increase text size
+            axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),  # rotate
             strip.background = element_rect(colour="black", fill="seashell2", size=1.5, linetype="solid"),  # change facet grid label background color
             strip.text.x = element_text(size = 12, color = "black", face = "bold"),  # facet grid x label
             strip.text.y = element_text(size = 12, color = "black", face = "bold"))  # facet grid y label
 
-grid.arrange(p,top='Baseline biomarkers included', right='Follow-up outcome predicted')
+p
+
+new_p <- grid.arrange(p,top='Baseline biomarkers included', right='Follow-up outcome predicted')
 
 fname_svg <- paste0("./4_output/figs/", "fig3.svg")
 fname_png <- paste0("./4_output/figs/", "fig3.png")
-ggsave(fname_svg, width = 6, height = 5.5, unit = "in")
-ggsave(fname_png, width = 6, height = 5.5, unit = "in")
+ggsave(plot = new_p, fname_svg, width = 6, height = 5.5, unit = "in")
+ggsave(plot=new_p, fname_png, width = 6, height = 5.5, unit = "in")
+
+
+
+
+
+
 
 # add Can you add "% increase" on top of the blue and green bars? Like "+6%" "-2%"? ----
 
@@ -545,83 +567,85 @@ for (i in 1:4) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Plot 1: Predict Hemoglobin with hgb+ferr
-p1 <- ggplot(hgb_ferr_predict_hgb, aes(x=Cohort, y=RMSPE, fill=Cohort))+
-  geom_bar(stat="identity", color="black")+
-  scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9"))+
-  scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))
-
-
-
-
-# Plot 2: Predict Ferritin with hgb+ferr
-p2 <- ggplot(hgb_only_predict_hgb, aes(x=Cohort, y=RMSPE, fill=Cohort))+
-  geom_bar(stat="identity", color="black")+
-  scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9"))+
-  theme_minimal()+
-  scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))
-
-
-# Plot 3: Predict Hemoglobin with hgb only
-p3 <- ggplot(hgb_ferr_predict_ferr, aes(x=Cohort, y=RMSPE, fill=Cohort))+
-  geom_bar(stat="identity", color="black")+
-  scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9"))+
-  theme_minimal()+
-  scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))
-
-# Plot 4: Predict Ferritin with hgb only
-p4 <- ggplot(hgb_only_predict_ferr, aes(x=Cohort, y=RMSPE, fill=Cohort))+
-  geom_bar(stat="identity", color="black")+
-  scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9"))+
-  theme_minimal()+
-  scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))
-
-
-
-# Create a 2 x 2 plotting matrix. The next 4 plots created will be plotted next to each other
-grid.arrange(p1, p2, p3, p4, ncol=2, nrow = 2)
-
-
-
-
-
-ggplot(data = rate20_all2, aes(x=vaxup, y=diff*328.2*10^6*0.005, ymin=diff_lb*328.2*10^6*0.005,ymax=diff_ub*328.2*10^6*0.005,fill=vaxeff))+
-  geom_bar(position = "dodge",stat = "identity", width = 0.6)+
-  geom_errorbar(position=position_dodge(width=0.6), width=0.2)+
-  ylab("Number of hospitalizations")+
-  xlab("Vaccine Uptake")+
-  labs(title = "Change in the number of hospitalization \n (vs.Historic)", fill="Vaccine Efficacy")+
-  #  coord_cartesian(ylim=c(-0.3,0.3)) +
-  geom_hline(yintercept = 0, linetype = 2) +
-  theme_bw()+
-  theme(
-    panel.spacing.x = unit(0,'mm'),
-    panel.background = element_blank(), axis.line=element_line(colour = "black"),
-    plot.title=element_text(hjust=0.5),
-    legend.title = element_text(size=12),legend.text = element_text(size=12),
-    axis.text.x = element_text(size=11, angle = 30, vjust=0.7),
-    axis.text.y = element_text(size=11),
-    axis.title.x = element_text(size=14),
-    axis.title.y = element_text(size=14))+
-  scale_fill_manual(values = c("seagreen","skyblue","skyblue4","tomato","tomato4"))+
-  scale_y_continuous(expand=c(0,0), limits = c(-5.5*10^5,5.5*10^5))
-# using Kyueun bar plot code that alton sent
+# 
+# 
+# 
+# 
+# 
+# # Plot 1: Predict Hemoglobin with hgb+ferr
+# p1 <- ggplot(hgb_ferr_predict_hgb, aes(x=Cohort, y=RMSPE, fill=Cohort))+
+#   geom_bar(stat="identity", color="black")+
+#   scale_fill_manual(values=c("tomato","#56B4E9", "#abdda4"))+
+#   scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))+ 
+#   theme(legend.position = "none")   # remove legend
+# 
+# 
+# 
+# # Plot 2: Predict Ferritin with hgb+ferr
+# p2 <- ggplot(hgb_only_predict_hgb, aes(x=Cohort, y=RMSPE, fill=Cohort))+
+#   geom_bar(stat="identity", color="black")+
+#   scale_fill_manual(values=c("tomato", "#56B4E9", "#abdda4"))+
+#   theme_minimal()+
+#   scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))+ 
+#   theme(legend.position = "none")   
+# 
+# 
+# # Plot 3: Predict Hemoglobin with hgb only
+# p3 <- ggplot(hgb_ferr_predict_ferr, aes(x=Cohort, y=RMSPE, fill=Cohort))+
+#   geom_bar(stat="identity", color="black")+
+#   scale_fill_manual(values=c("tomato", "#56B4E9", "#abdda4"))+
+#   theme_minimal()+
+#   scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))+ 
+#   theme(legend.position = "none")   
+# 
+# 
+# # Plot 4: Predict Ferritin with hgb only
+# p4 <- ggplot(hgb_only_predict_ferr, aes(x=Cohort, y=RMSPE, fill=Cohort))+
+#   geom_bar(stat="identity", color="black")+
+#   scale_fill_manual(values=c("tomato", "#56B4E9", "#abdda4"))+
+#   theme_minimal()+
+#   scale_x_discrete(limits=c("RISE", "Vitalant", "SANBS"))+ 
+#   theme(legend.position = "none")   
+# 
+# 
+# 
+# # Create a 2 x 2 plotting matrix. The next 4 plots created will be plotted next to each other
+# grid.arrange(p1, p2, p3, p4, ncol=2, nrow = 2)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# ggplot(data = rate20_all2, aes(x=vaxup, y=diff*328.2*10^6*0.005, ymin=diff_lb*328.2*10^6*0.005,ymax=diff_ub*328.2*10^6*0.005,fill=vaxeff))+
+#   geom_bar(position = "dodge",stat = "identity", width = 0.6)+
+#   geom_errorbar(position=position_dodge(width=0.6), width=0.2)+
+#   ylab("Number of hospitalizations")+
+#   xlab("Vaccine Uptake")+
+#   labs(title = "Change in the number of hospitalization \n (vs.Historic)", fill="Vaccine Efficacy")+
+#   #  coord_cartesian(ylim=c(-0.3,0.3)) +
+#   geom_hline(yintercept = 0, linetype = 2) +
+#   theme_bw()+
+#   theme(
+#     panel.spacing.x = unit(0,'mm'),
+#     panel.background = element_blank(), axis.line=element_line(colour = "black"),
+#     plot.title=element_text(hjust=0.5),
+#     legend.title = element_text(size=12),legend.text = element_text(size=12),
+#     axis.text.x = element_text(size=11, angle = 30, vjust=0.7),
+#     axis.text.y = element_text(size=11),
+#     axis.title.x = element_text(size=14),
+#     axis.title.y = element_text(size=14))+
+#   scale_fill_manual(values = c("seagreen","skyblue","skyblue4","tomato","tomato4"))+
+#   scale_y_continuous(expand=c(0,0), limits = c(-5.5*10^5,5.5*10^5))
+# # using Kyueun bar plot code that alton sent
 
 
 
