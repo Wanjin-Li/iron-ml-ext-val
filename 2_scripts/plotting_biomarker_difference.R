@@ -44,6 +44,12 @@ rise_h <- fread(dat_paths[2])  #"./1_data/private/ml_training_data_hgb_ferr.csv"
 
 
 r_hf <- rise_hf[,c("VisitDate", "index_hgb", "fu_hgb", "time_to_fu")]
+
+
+# Percent follow up hemoglobin lower than index hemoglobin
+sum (r_hf$fu_hgb - r_hf$index_hgb < 0) / nrow(r_hf)
+
+
 r_hf$id <- 1:nrow(r_hf)
 r_hf$percent <- ( (r_hf$fu_hgb - r_hf$index_hgb)/ (r_hf$index_hgb + EPSILON) ) * 100
 
@@ -96,6 +102,11 @@ ggplot(data = df, aes(x = time_to_fu, y = percent, group = id))+
 ####### Ferritin
 
 r_hf <- rise_hf[,c("VisitDate", "index_ferritin", "fu_ferritin", "time_to_fu")]
+
+# Percent follow up ferritin lower than index ferritin
+sum (r_hf$fu_ferritin - r_hf$index_ferritin < 0) / nrow(r_hf)
+
+
 r_hf$id <- 1:nrow(r_hf)
 r_hf$percent <- ( (r_hf$fu_ferritin - r_hf$index_ferritin)/ (r_hf$fu_ferritin + EPSILON)) * 100
 
