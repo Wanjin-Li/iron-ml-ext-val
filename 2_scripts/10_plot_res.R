@@ -6,7 +6,7 @@ library(gridExtra)  # for arranging plots
 library(tidyverse)
 library(stringr)
 source('https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R')
-source("./2_scripts/utility_functions.R")
+source("utility_functions.R")
 theme_set(theme_bw()+theme(axis.line = element_line(colour = "black"),
                            panel.grid.major = element_blank(),
                            panel.grid.minor = element_blank(),
@@ -564,8 +564,53 @@ for (i in 1:4) {
   print("=================================")
 }
 
+# Performance across subgroups
+# Using  a linear regression regressing error on age, sex, race, 
+# 2-yr donation history (0, 1-2, 3+ in last 24 months), with interaction term for female and 0 donation history
+# function returns coef table
+run_lm<-function(subgroup_df){
+  model <- lm(rmspe ~ age + sex + race + donation_history + sex:donation_history, data = subgroup_df)
+  coef_df <- coef(summary(model))
+  coef_df <- coef_df %>% mutate(group = rownames(coef_df))
+  return (coef_df)
+}
 
 
+
+################ SANBS: run linear models ###############
+# add column donation_history_cat-> to categorize donor history (in last 24 months) into 0, 1-2 and 3+
+
+
+# add rmpse to hgb only dataset - using getrmpse()
+
+## predicting  hemoglobin
+
+## predicting  ferritin
+
+# add rmpse to hgb and ferr dataset
+
+## predicting hemglobin
+
+## predicting ferrtin
+
+
+
+################ Vitalant: run linear models ###############
+
+
+# add column donation_history_cat-> to categorize donor history (in last 24 months) into 0, 1-2 and 3+
+
+# add rmpse to hgb only dataset
+
+## predicting  hemoglobin
+
+## predicting  ferritin
+
+# add rmpse to hgb and ferr dataset
+
+## predicting hemglobin
+
+## predicting ferrtin
 
 # 
 # 
