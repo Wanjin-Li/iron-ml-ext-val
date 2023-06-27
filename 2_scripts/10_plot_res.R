@@ -564,55 +564,146 @@ for (i in 1:4) {
   print("=================================")
 }
 
-# Performance across subgroups
-# Using  a linear regression regressing error on age, sex, race, 
-# 2-yr donation history (0, 1-2, 3+ in last 24 months), with interaction term for female and 0 donation history
+######### Performance across subgroups #############
+# getrmse - return df of rmse 
+get_rmse <- function(df) {
+  
+  ########################################### to del
+  df <- na.omit(df)
+  df <- df[df$fu_outcome != 0, ]
+  ###########################################
+  # print(nrow(df))
+  r<-(sqrt(((df$fu_outcome - df$prediction) / (df$fu_outcome + EPSILON))**2)) * 100
+  return(r)
+}
+
+# Using  a linear regression regressing error on age, sex, race, 2-yr donation history (0, 1-2, 3+ in last 24 months), 
+# with interaction term for female and 0 donation history
 # function returns coef table
-run_lm<-function(subgroup_df){
-  model <- lm(rmspe ~ age + sex + race + donation_history + sex:donation_history, data = subgroup_df)
+run_lm<-function(df){
+  
+  #categorise age
+  df <- df %>% mutate(agegroup = case_when(age >= 15  & age <= 24 ~ '15-24',
+                                               age >= 25  & age <= 39 ~ '25-39',
+                                               age >= 40  & age <= 64 ~ '40-64',
+                                               age >= 64 ~ '64+'))
+  #categorise donation history
+  df <- df %>% mutate(don_hist_group = case_when(donation_history == 0 ~ '0',
+                                                 donation_history >= 1  & donation_history <= 2 ~ '1-2',
+                                                 donation_history >= 3 ~ '3+'))
+  
+  #redefine reference categories
+  df$sex <- relevel(factor(df$sex), ref = 'M')
+  df$race <- relevel(factor(df$race), ref = 'White') 
+  df$agegroup <- relevel(factor(df$agegroup), ref = '15-24') 
+  df$don_hist_group <- relevel(factor(df$don_hist_group), ref = '3+') 
+  
+  #run linear regression
+  model <- lm(rmspe ~ agegroup + sex + race + don_hist_group + sex*don_hist_group, data = df)
   coef_df <- coef(summary(model))
-  coef_df <- coef_df %>% mutate(group = rownames(coef_df))
+
   return (coef_df)
 }
 
 
 
 ################ SANBS: run linear models ###############
-# add column donation_history_cat-> to categorize donor history (in last 24 months) into 0, 1-2 and 3+
+# add column donation_history - donations in past 24 months
 
+s_hgb_only <- s_hgb_only %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1)
+s_hgb_ferr <- s_hgb_ferr %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1)
 
-# add rmpse to hgb only dataset - using getrmpse()
-
+#hgb only dataset
 ## predicting  hemoglobin
+s_hgb_only$rmspe<-get_rmse(s_h_h)
+s_h_h_lm<-run_lm(s_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
 
 ## predicting  ferritin
+s_hgb_only$rmspe<-get_rmse(s_h_f)
+s_h_f_lm<-run_lm(s_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
 
-# add rmpse to hgb and ferr dataset
+#hgb and ferr dataset
+## predicting hemoglobin
+s_hgb_ferr$rmspe<- get_rmse(s_hf_h)
+s_hf_h_lm<-run_lm(s_hgb_ferr[c('age', 'sex', 'race', 'donation_history','rmspe')])
 
-## predicting hemglobin
-
-## predicting ferrtin
-
+## predicting ferritin
+s_hgb_ferr$rmspe<-get_rmse(s_hf_f)
+s_hf_f_lm<-run_lm(s_hgb_ferr[c('age', 'sex', 'race','donation_history', 'rmspe')])
 
 
 ################ Vitalant: run linear models ###############
 
 
-# add column donation_history_cat-> to categorize donor history (in last 24 months) into 0, 1-2 and 3+
+# add column donation_history - donations in past 24 months
 
-# add rmpse to hgb only dataset
+v_hgb_only <- v_hgb_only %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1)
+v_hgb_ferr <- v_hgb_ferr %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1) 
 
+#hgb only dataset
 ## predicting  hemoglobin
+v_hgb_only$rmspe<-get_rmse(v_h_h)
+v_h_h_lm<-run_lm(v_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
 
 ## predicting  ferritin
+v_hgb_only$rmspe<-get_rmse(v_h_f)
+v_h_f_lm<-run_lm(v_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
 
-# add rmpse to hgb and ferr dataset
+#hgb and ferr dataset
+## predicting hemoglobin
+v_hgb_ferr$rmspe<-get_rmse(v_hf_h)
+v_hf_h_lm<-run_lm(v_hgb_ferr[c('age', 'sex', 'race','donation_history', 'rmspe')])
 
-## predicting hemglobin
+## predicting ferritin
+v_hgb_ferr$rmspe<-get_rmse(v_hf_f)
+v_hf_f_lm<-run_lm(v_hgb_ferr[c('age', 'sex', 'race', 'donation_history','rmspe')])
 
-## predicting ferrtin
 
-# 
+################ Sanquin: run linear models ###############
+
+# add column donation_history - donations in past 24 months
+
+sq_hgb_only <- sq_hgb_only %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1)
+sq_hgb_ferr <- sq_hgb_ferr %>%
+  arrange(Visit_Date) %>%
+  group_by(DonorID) %>%
+  mutate(donation_history = row_number() - 1)
+
+#hgb only dataset
+## predicting  hemoglobin
+sq_hgb_only$rmspe<-get_rmse(sq_h_h)
+sq_h_h_lm<-run_lm(sq_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+
+## predicting  ferritin
+sq_hgb_only$rmspe<-get_rmse(sq_h_f)
+sq_h_f_lm<-run_lm(sq_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+
+#hgb and ferr dataset
+## predicting hemoglobin
+sq_hgb_ferr$rmspe<-get_rmse(sq_hf_h)
+sq_hf_h_lm<-run_lm(sq_hgb_ferr[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+
+## predicting ferritin
+sq_hgb_ferr$rmspe<-get_rmse(sq_hf_f)
+sq_hf_f_lm<-run_lm(sq_hgb_ferr[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+
+
+#_____________________________________________________________________________________________________
 # 
 # 
 # 
