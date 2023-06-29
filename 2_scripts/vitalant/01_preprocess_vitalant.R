@@ -257,8 +257,8 @@ df <- df[, c("DonorID",
              "fu_log_ferritin")]
 str(df)
 
-
-
+# for supplementary table
+print(dfSummary(df), file="./3_intermediate/data_summaries/vitalant_data_summary_all.html")
 
 # Create 2 datasets ----
 # Dataset 1: index donation (hgb, ferritin present) ---> predict follow up (hgb, ferritin separately)
