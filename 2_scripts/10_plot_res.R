@@ -605,7 +605,8 @@ for (i in 1:4) {
 }
 
 ######### Performance across subgroups #############
-# getrmse - return df of rmse 
+
+# getrmse
 get_rmse <- function(df) {
   
   ########################################### to del
@@ -617,12 +618,14 @@ get_rmse <- function(df) {
   return(r)
 }
 
-# Using  a linear regression regressing error on age, sex, race, 2-yr donation history (0, 1-2, 3+ in last 24 months), 
-# with interaction term for female and 0 donation history
+# Performance across subgroups
+# Using  a linear regression regressing error on age, sex, race, 
+# 2-yr donation history (0, 1-2, 3+ in last 24 months), with interaction term for female and 0 donation history
 # function returns coef table
 run_lm<-function(df){
   
   #categorise age
+  
   df <- df %>% mutate(agegroup = case_when(age >= 15  & age <= 24 ~ '15-24',
                                                age >= 25  & age <= 39 ~ '25-39',
                                                age >= 40  & age <= 64 ~ '40-64',
@@ -632,22 +635,30 @@ run_lm<-function(df){
                                                  donation_history >= 1  & donation_history <= 2 ~ '1-2',
                                                  donation_history >= 3 ~ '3+'))
   
-  #redefine reference categories
+  #redefining reference categories
   df$sex <- relevel(factor(df$sex), ref = 'M')
   df$race <- relevel(factor(df$race), ref = 'White') 
   df$agegroup <- relevel(factor(df$agegroup), ref = '15-24') 
   df$don_hist_group <- relevel(factor(df$don_hist_group), ref = '3+') 
   
-  #run linear regression
-  model <- lm(rmspe ~ agegroup + sex + race + don_hist_group + sex*don_hist_group, data = df)
-  coef_df <- coef(summary(model))
-
+  
+  model <- lm(rmspe ~ agegroup + sex + race + don_hist_group, data = df)
+  #sex*dons_hist
+  coef <- coef(model)
+  conf_intervals <- confint(model)
+  coef_df <- data.frame(Term = names(coef),
+                                Coef= coef,
+                                Conf_Lower = conf_intervals[, 1],
+                                Conf_Upper = conf_intervals[, 2])
+  
+  
   return (coef_df)
 }
 
 
 
 ################ SANBS: run linear models ###############
+
 # add column donation_history - donations in past 24 months
 
 s_hgb_only <- s_hgb_only %>%
@@ -663,19 +674,32 @@ s_hgb_ferr <- s_hgb_ferr %>%
 ## predicting  hemoglobin
 s_hgb_only$rmspe<-get_rmse(s_h_h)
 s_h_h_lm<-run_lm(s_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
-
+s_h_h_lm<-s_h_h_lm[-c(8, 9),]
+s_subgroup_lm<-s_h_h_lm
+colnames(s_subgroup_lm) <- c('Variable', 's_h_h_coef', 's_h_h_conf_lower', 's_h_h_conf_upper')
+  
 ## predicting  ferritin
 s_hgb_only$rmspe<-get_rmse(s_h_f)
 s_h_f_lm<-run_lm(s_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
+s_h_f_lm<-s_h_f_lm[-c(8, 9),]
+s_subgroup_lm<-cbind(s_subgroup_lm, s_h_f_lm[,2:4])
+colnames(s_subgroup_lm)[5:7] <- c( 's_h_f_coef', 's_h_f_conf_lower', 's_h_f_conf_upper')
 
 #hgb and ferr dataset
 ## predicting hemoglobin
 s_hgb_ferr$rmspe<- get_rmse(s_hf_h)
 s_hf_h_lm<-run_lm(s_hgb_ferr[c('age', 'sex', 'race', 'donation_history','rmspe')])
+s_hf_h_lm<-s_hf_h_lm[-c(8, 9),]
+s_subgroup_lm<-cbind(s_subgroup_lm, s_hf_h_lm[,2:4])
+colnames(s_subgroup_lm)[8:10] <- c( 's_hf_h_coef', 's_hf_h_conf_lower', 's_hf_h_conf_upper')
+
 
 ## predicting ferritin
 s_hgb_ferr$rmspe<-get_rmse(s_hf_f)
 s_hf_f_lm<-run_lm(s_hgb_ferr[c('age', 'sex', 'race','donation_history', 'rmspe')])
+s_hf_f_lm<-s_hf_f_lm[-c(8, 9),]
+s_subgroup_lm<-cbind(s_subgroup_lm, s_hf_f_lm[,2:4])
+colnames(s_subgroup_lm)[11:13] <- c( 's_hf_f_coef', 's_hf_f_conf_lower', 's_hf_f_conf_upper')
 
 
 ################ Vitalant: run linear models ###############
@@ -696,19 +720,33 @@ v_hgb_ferr <- v_hgb_ferr %>%
 ## predicting  hemoglobin
 v_hgb_only$rmspe<-get_rmse(v_h_h)
 v_h_h_lm<-run_lm(v_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
+v_h_h_lm<-v_h_h_lm[-c(9, 10, 11, 12),]
+v_subgroup_lm<-v_h_h_lm
+colnames(v_subgroup_lm) <- c('Variable', 'v_h_h_coef', 'v_h_h_conf_lower', 'v_h_h_conf_upper')
 
 ## predicting  ferritin
 v_hgb_only$rmspe<-get_rmse(v_h_f)
 v_h_f_lm<-run_lm(v_hgb_only[c('age', 'sex', 'race', 'donation_history','rmspe')])
+v_h_f_lm<-v_h_f_lm[-c(9, 10, 11, 12),]
+v_subgroup_lm<-cbind(v_subgroup_lm, v_h_f_lm[,2:4])
+colnames(v_subgroup_lm)[5:7] <- c( 'v_h_f_coef', 'v_h_f_conf_lower', 'v_h_f_conf_upper')
+
 
 #hgb and ferr dataset
 ## predicting hemoglobin
 v_hgb_ferr$rmspe<-get_rmse(v_hf_h)
 v_hf_h_lm<-run_lm(v_hgb_ferr[c('age', 'sex', 'race','donation_history', 'rmspe')])
+v_hf_h_lm<-v_hf_h_lm[-c(9, 10, 11, 12),]
+v_subgroup_lm<-cbind(v_subgroup_lm, v_hf_h_lm[,2:4])
+colnames(v_subgroup_lm)[8:10] <- c( 'v_hf_h_coef', 'v_hf_h_conf_lower', 'v_hf_h_conf_upper')
 
 ## predicting ferritin
 v_hgb_ferr$rmspe<-get_rmse(v_hf_f)
 v_hf_f_lm<-run_lm(v_hgb_ferr[c('age', 'sex', 'race', 'donation_history','rmspe')])
+v_hf_f_lm<-v_hf_f_lm[-c(9, 10, 11, 12),]
+v_subgroup_lm<-cbind(v_subgroup_lm, v_hf_f_lm[,2:4])
+colnames(v_subgroup_lm)[11:13] <- c( 'v_hf_f_coef', 'v_hf_f_conf_lower', 'v_hf_f_conf_upper')
+
 
 
 ################ Sanquin: run linear models ###############
@@ -728,19 +766,30 @@ sq_hgb_ferr <- sq_hgb_ferr %>%
 ## predicting  hemoglobin
 sq_hgb_only$rmspe<-get_rmse(sq_h_h)
 sq_h_h_lm<-run_lm(sq_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+sq_subgroup_lm<-sq_h_h_lm
+colnames(sq_subgroup_lm) <- c('Variable', 'sq_h_h_coef', 'sq_h_h_conf_lower', 'sq_h_h_conf_upper')
 
 ## predicting  ferritin
 sq_hgb_only$rmspe<-get_rmse(sq_h_f)
 sq_h_f_lm<-run_lm(sq_hgb_only[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+sq_subgroup_lm<-cbind(sq_subgroup_lm, sq_h_f_lm)
+colnames(sq_subgroup_lm)[5:7] <- c( 'sq_h_f_coef', 'sq_h_f_conf_lower', 'sq_h_f_conf_upper')
 
 #hgb and ferr dataset
 ## predicting hemoglobin
 sq_hgb_ferr$rmspe<-get_rmse(sq_hf_h)
 sq_hf_h_lm<-run_lm(sq_hgb_ferr[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+sq_subgroup_lm<-cbind(sq_subgroup_lm, sq_hf_h_lm)
+colnames(sq_subgroup_lm)[8:10] <- c( 'sq_hf_h_coef', 'sq_hf_h_conf_lower', 'sq_hf_h_conf_upper')
+
 
 ## predicting ferritin
 sq_hgb_ferr$rmspe<-get_rmse(sq_hf_f)
 sq_hf_f_lm<-run_lm(sq_hgb_ferr[c('age', 'sex', 'race', 'donation_history', 'rmspe')])
+sq_subgroup_lm<-cbind(sq_subgroup_lm, sq_hf_f_lm)
+colnames(sq_subgroup_lm)[11:13] <- c( 'sq_hf_f_coef', 'sq_hf_f_conf_lower', 'sq_hf_f_conf_upper')
+
+
 
 
 #_____________________________________________________________________________________________________
