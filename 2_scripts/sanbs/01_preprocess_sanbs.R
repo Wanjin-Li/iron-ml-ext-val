@@ -235,6 +235,9 @@ df <- df[, c("DonorID",
 str(df)
 
 
+# for supplementary table
+print(dfSummary(df), file="./3_intermediate/data_summaries/sanbs_data_summary_all.html")
+
 
 
 # Create 2 datasets ----

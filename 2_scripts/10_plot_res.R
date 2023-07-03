@@ -6,7 +6,7 @@ library(gridExtra)  # for arranging plots
 library(tidyverse)
 library(stringr)
 source('https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R')
-source("utility_functions.R")
+source("./2_scripts/utility_functions.R")
 theme_set(theme_bw()+theme(axis.line = element_line(colour = "black"),
                            panel.grid.major = element_blank(),
                            panel.grid.minor = element_blank(),
@@ -280,8 +280,8 @@ main_df <- rbind(hgb_ferr_predict_hgb, hgb_only_predict_hgb, hgb_ferr_predict_fe
 main_df <- main_df %>%
   mutate(Cohort = case_when(
     Cohort == "RISE" ~ "Training",
-    Cohort == "SANBS" ~ "South Africa",
-    Cohort == "Sanquin" ~ "Netherlands",
+    Cohort == "SANBS" ~ "SA",
+    Cohort == "Sanquin" ~ "NL",
     Cohort == "Vitalant" ~ "US",
     TRUE ~ Cohort
   ))
@@ -289,33 +289,9 @@ main_df <- main_df %>%
 # Print the modified dataframe
 print(main_df)
 
-main_df$Cohort <- factor(main_df$Cohort, levels = c("Training", "US", "South Africa", "Netherlands"))
+main_df$Cohort <- factor(main_df$Cohort, levels = c("Training", "US", "SA", "NL"))
 main_df$predict_biomarker <- factor(main_df$predict_biomarker, levels = c("Hemoglobin","Log10 Ferritin"))
 main_df$data_version <- factor(main_df$data_version, levels = c("Hemoglobin and Ferritin", "Hemoglobin only"))
-
-# Plot FIGURE 3 RMSPE ----
-
-
-p <- ggplot(main_df, aes(x=Cohort, y=RMSPE, fill=Cohort))+
-      geom_bar(stat="identity", color="black",show.legend = FALSE)+
-      scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9", "orange"))+
-      scale_y_continuous(expand=c(0,0), limits = c(0,37))+  # set y limit
-      facet_grid(predict_biomarker ~ data_version)+
-      theme(text = element_text(size = 14),  # increase text size
-            axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),  # rotate
-            strip.background = element_rect(colour="black", fill="seashell2", size=1.5, linetype="solid"),  # change facet grid label background color
-            strip.text.x = element_text(size = 12, color = "black", face = "bold"),  # facet grid x label
-            strip.text.y = element_text(size = 12, color = "black", face = "bold"))  # facet grid y label
-
-p
-
-new_p <- grid.arrange(p,top='Baseline biomarkers included', right='Follow-up outcome predicted')
-
-fname_svg <- paste0("./4_output/figs/", "fig3.svg")
-fname_png <- paste0("./4_output/figs/", "fig3.png")
-ggsave(plot = new_p, fname_svg, width = 6, height = 5.5, unit = "in")
-ggsave(plot=new_p, fname_png, width = 6, height = 5.5, unit = "in")
-
 
 
 
@@ -326,38 +302,102 @@ ggsave(plot=new_p, fname_png, width = 6, height = 5.5, unit = "in")
 
 compute_percentage_change_in_rmspe <- function(base, new) {
   #print(new)
-  return( round( (100 * (new - base) / base ), 1))
+  
+  res <- round( (100 * (new - base) / base ), 1)
+  return(res)
   
 }
+
+
+percent_increase <- c(NA)
+
+
+# hgb_ferr - Predict hemoglobin  
+base <- r_hf_h_rmspe
+new <- v_hf_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- s_hf_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- sq_hf_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+
+percent_increase <- append(percent_increase, NA)
+
+# hgb_only - Predict hemoglobin 
+base <- r_h_h_rmspe
+new <- v_h_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- s_h_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- sq_h_h_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+
+percent_increase <- append(percent_increase, NA)
 
 # hgb_ferr - Predict ferritin  
 base <- r_hf_f_rmspe
 
-new <- v_hf_f_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- s_hf_f_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- sq_hf_f_rmspe; compute_percentage_change_in_rmspe(base, new)
+new <- v_hf_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- s_hf_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- sq_hf_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+
+percent_increase <- append(percent_increase, NA)
 
 # hgb_only - Predict ferritin 
 base <- r_h_f_rmspe
 
-new <- v_h_f_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- s_h_f_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- sq_h_f_rmspe; compute_percentage_change_in_rmspe(base, new)
+new <- v_h_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- s_h_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
+new <- sq_h_f_rmspe; res <- compute_percentage_change_in_rmspe(base, new); percent_increase <- append(percent_increase, res)
 
-# hgb_ferr - Predict hemoglobin  
-base <- r_hf_h_rmspe
 
-new <- v_hf_h_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- s_hf_h_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- sq_hf_h_rmspe; compute_percentage_change_in_rmspe(base, new)
+percent_increase
+str_percent_increase <- c()
 
-# hgb_only - Predict hemoglobin 
-base <- r_h_h_rmspe
-new <- v_h_h_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- s_h_h_rmspe; compute_percentage_change_in_rmspe(base, new)
-new <- sq_h_h_rmspe; compute_percentage_change_in_rmspe(base, new)
+for (i in percent_increase) {
+  if (is.na(i)) {
+    str_percent_increase <- append(str_percent_increase, i)
+    
+  } else if (i >= 0) {
+    res <- paste("+", i, "%", sep="")
+    str_percent_increase <- append(str_percent_increase, res)
+  } else if (i <= 0) {
+    res <- paste(i, "%", sep="")
+    str_percent_increase <- append(str_percent_increase, res)
+  }
+}
+
+main_df$str_percent_increase <- str_percent_increase
+stop()
+
+
+
+
+
+# Plot FIGURE 3 RMSPE ----
+
+
+p <- ggplot(main_df, aes(x=Cohort, y=RMSPE, fill=Cohort))+
+      geom_bar(stat="identity", color="black",show.legend = FALSE)+
+      scale_fill_manual(values=c("tomato", "#abdda4", "#56B4E9", "orange"))+
+      scale_y_continuous(expand=c(0,0), limits = c(0,37))+  # set y limit
+      facet_grid(predict_biomarker ~ data_version)+
+      geom_text(aes(label=str_percent_increase), position=position_dodge(width=0.9), vjust=-0.25)+
+
+      theme(text = element_text(size = 14),  # increase text size
+            axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),  # rotate
+            strip.background = element_rect(colour="black", fill="seashell2", size=1.5, linetype="solid"),  # change facet grid label background color
+            strip.text.x = element_text(size = 12, color = "black", face = "bold"),  # facet grid x label
+            strip.text.y = element_text(size = 12, color = "black", face = "bold"))  # facet grid y label
+
+
+
+p
+
+new_p <- grid.arrange(p,top='Baseline biomarkers included', right='Follow-up outcome predicted')
+
+fname_svg <- paste0("./4_output/figs/", "fig3.svg")
+fname_png <- paste0("./4_output/figs/", "fig3.png")
+ggsave(plot = new_p, fname_svg, width = 6, height = 5.5, unit = "in")
+ggsave(plot=new_p, fname_png, width = 6, height = 5.5, unit = "in")
 
 stop()
+
+
 
 
 
