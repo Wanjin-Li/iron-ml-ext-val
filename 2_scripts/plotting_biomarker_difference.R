@@ -1,17 +1,8 @@
-# library(data.table)
-# library(pROC)
+
 library(ggplot2)
-# library(readxl)
-# library(scales)
 library(tidyverse)
-# library(ggforce)
-# library(rsample)
-# library(xgboost)
-# library(randomForest)
-# library(gridExtra)
-# library(glmnet)
-# library(purrr)
-# source('https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R')
+library(ggpubr)
+
 
 theme_set(theme_bw()+theme(axis.line = element_line(colour = "black"),
                              panel.grid.major = element_blank(),
@@ -191,7 +182,8 @@ bp2 <- ggplot(data = res_all_3, aes(x = time_to_fu, y = percent, group = id, col
 
 bp2 + facet_grid(. ~ biomarker)
 
-ggsave("./4_output/figs/suppfig3_slope_graph.svg")
+#ggsave("./4_output/figs/suppfig2_slope_graph.svg")
+
 
 
 # Plotting histograms variability ----
@@ -221,18 +213,26 @@ res$time = factor(res$time, levels=c("Follow up ferritin", "Follow up log10 ferr
 #   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500)
 # plot1 + facet_grid(. ~ time)
 
-ggplot(ferr, aes(x=percent, color=time)) +
+p1 <- ggplot(ferr, aes(x=percent, color=time)) +
   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#F8766D")+
-  xlab("Percent change")
-ggsave("./4_output/figs/suppfig4a_hist_ferritin.svg")
+  xlab("Percent change")+
+  labs(title="Ferritin")
+#ggsave("./4_output/figs/suppfig3a_hist_ferritin.svg")
 
-ggplot(logferr, aes(x=percent, color=time)) +
+p2 <- ggplot(logferr, aes(x=percent, color=time)) +
   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#00BA38")+
-  xlab("Percent change")
-ggsave("./4_output/figs/suppfig4b_hist_log10ferritin.svg")
+  xlab("Percent change")+
+  labs(title="Log10 Ferritin")
+#ggsave("./4_output/figs/suppfig3b_hist_log10ferritin.svg")
 
-ggplot(hgb, aes(x=percent, color=time)) +
+p3 <- ggplot(hgb, aes(x=percent, color=time)) +
   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#619CFF")+
-  xlab("Percent change")
-ggsave("./4_output/figs/suppfig4c_hist_hgb.svg")
+  xlab("Percent change")+
+  labs(title="Hemoglobin")
+#ggsave("./4_output/figs/suppfig3c_hist_hgb.svg")
+
+
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+ggsave("./4_output/figs/suppfig3_hist.svg")
+ggsave("./4_output/figs/suppfig3_hist.png")
 
