@@ -184,6 +184,7 @@ for (version in versions) {
   }
 }
 
+
 # Sanquin ----  
 # Note has NAs in some of the dataframe results so remove these rows for now until Amber reruns the external validation code
 for (version in versions) {
@@ -477,9 +478,9 @@ hgb_only_var <- c("DonorID",
 hgb_ferr_var_race <-  c(hgb_ferr_var, "race")
 hgb_only_var_race <-  c(hgb_only_var, "race")
 
-# sanbs
+## SANBS ----
 s_df <- fread("./3_intermediate/private/sanbs_intermediate_to_del4.csv")
-s_df <- s_df[,hgb_ferr_var_race]
+s_df <- s_df[, ..hgb_ferr_var_race]
 
 # s_df$index_hgb <- as.numeric(s_df$index_hgb)
 # s_df$fu_hgb <- as.numeric(s_df$fu_hgb)
@@ -544,7 +545,7 @@ for (i in 1:4) {
 
 
 
-# Vitalant
+## Vitalant ----
 v_df <- data.frame(fread("./3_intermediate/private/vitalant_intermediate_to_del6.csv"))
 v_df <- v_df[,hgb_ferr_var_race]
 
@@ -657,6 +658,7 @@ run_lm<-function(df){
 
 
 
+
 ################ SANBS: run linear models ###############
 
 # add column donation_history - donations in past 24 months
@@ -701,6 +703,21 @@ s_hf_f_lm<-s_hf_f_lm[-c(8, 9),]
 s_subgroup_lm<-cbind(s_subgroup_lm, s_hf_f_lm[,2:4])
 colnames(s_subgroup_lm)[11:13] <- c( 's_hf_f_coef', 's_hf_f_conf_lower', 's_hf_f_conf_upper')
 
+## export parameter value table to a csv
+path <- "./3_intermediate"
+folder <- "subgroup_performance"
+
+newpath <- file.path(path, folder)
+if(!dir.exists(newpath)){
+  dir.create(newpath)
+}
+
+s_filename <- "s_subgroup_lm_data"
+
+s_filepath <- paste0(s_filename, ".csv")
+s_filepath <- file.path(newpath, s_filepath)
+
+write.csv(s_subgroup_lm, s_filepath, row.names = FALSE)
 
 ################ Vitalant: run linear models ###############
 
@@ -747,6 +764,15 @@ v_hf_f_lm<-v_hf_f_lm[-c(9, 10, 11, 12),]
 v_subgroup_lm<-cbind(v_subgroup_lm, v_hf_f_lm[,2:4])
 colnames(v_subgroup_lm)[11:13] <- c( 'v_hf_f_coef', 'v_hf_f_conf_lower', 'v_hf_f_conf_upper')
 
+## export parameter value table to a csv
+
+v_filename <- "v_subgroup_lm_data"
+
+v_filepath <- paste0(v_filename, ".csv")
+v_filepath <- file.path(newpath, v_filepath)
+
+write.csv(v_subgroup_lm, v_filepath, row.names = FALSE)
+
 
 
 ################ Sanquin: run linear models ###############
@@ -789,6 +815,24 @@ sq_hf_f_lm<-run_lm(sq_hgb_ferr[c('age', 'sex', 'race', 'donation_history', 'rmsp
 sq_subgroup_lm<-cbind(sq_subgroup_lm, sq_hf_f_lm)
 colnames(sq_subgroup_lm)[11:13] <- c( 'sq_hf_f_coef', 'sq_hf_f_conf_lower', 'sq_hf_f_conf_upper')
 
+# export parameter value table to a csv
+
+# currdir <- getwd()
+# currfolder <- "3_intermediate"
+# path <- file.path(currdir, currfolder)
+# folder <- "subgroup_performance"
+# 
+# newpath <- file.path(path, folder)
+# if(!dir.exists(newpath)){
+#   dir.create(newpath)
+# }
+
+sq_filename <- "sq_subgroup_lm_data"
+
+sq_filepath <- paste0(sq_filename, ".csv")
+sq_filepath <- file.path(newpath, sq_filepath)
+
+write.csv(sq_subgroup_lm, sq_filepath, row.names = FALSE)
 
 
 
