@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=XGB
-#SBATCH --output=/home/chenyangsu/iron-ml-ext-val/3_intermediate/slurm_output/%j.out  # make sure directory slurm_output exists first or file will not write 
-#SBATCH --error=/home/chenyangsu/iron-ml-ext-val/3_intermediate/slurm_output/%j.err
+#SBATCH --output=/home/wanjinli/iron-ml-ext-val/3_intermediate/slurm_output/%j.out  # make sure directory slurm_output exists first or file will not write 
+#SBATCH --error=/home/wanjinli/iron-ml-ext-val/3_intermediate/slurm_output/%j.err
 #SBATCH --time=24:00:00
 #SBATCH --mem=24GB                  
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1          
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=chen-yang.su@mail.mcgill.ca  
+#SBATCH --mail-user=wanjin.li@mail.mcgill.ca  
 #SBATCH --array=1-480
 
 
