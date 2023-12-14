@@ -1,5 +1,3 @@
-# This file also gets uploaded to sherlock for training on computing cluster
-
 library(stringr)
 library(xgboost)
 library(randomForest)
@@ -58,11 +56,23 @@ gen_features_list <- function(dt, version){
 #  to the number of the first row in hyperparam table under assessment
 #  in this job.
 
-run_mod_assess <- function(mod_name, param_sets, dt_split,
-                           idx_start = 1,
-                           fname_results = "assess_results.csv"){
+
+# Trains and assesses model configurations
+#. (algorithm/mod_name + hyperparameter set)
+#. specified by the arguments
+tune_subset <- function(
+    mod_name, #"XGB", "RF", "EN", "CB"
+    param_sets, #Table of hyperparameter sets to use
+    dt_split,
+    fname_results,
+    start, end #rows of param_sets from which to draw hyperparameter sets
+    ) {
+  
+  #Run model assessment
   # Construct table for storing results
-  #rmse_res_cols <-  matrix(ncol = 15, nrow = 0)
+  #. ROWS: hyperparam sets
+  #. COLS: one to store RMSPE for each fold/rpt
+  
   rmspe_res_cols <-  matrix(ncol = 15, nrow = 0)
   #mae_res_cols <-  matrix(ncol = 15, nrow = 0)
   
@@ -70,167 +80,120 @@ run_mod_assess <- function(mod_name, param_sets, dt_split,
   #                                   formatC(ceiling(1:15/5)),
   #                                   "_fold",
   #                                   formatC((1:15-1)%%5 + 1))
-  colnames(rmspe_res_cols) <- paste0("rmspe_repeat",
-                                    formatC(ceiling(1:15/5)),
-                                    "_fold",
-                                    formatC((1:15-1)%%5 + 1))
-  # colnames(mae_res_cols) <- paste0("mae_repeat",
-  #                                  formatC(ceiling(1:15/5)),
-  #                                  "_fold",
-  #                                  formatC((1:15-1)%%5 + 1))
   
-  # dt.results.rmse <- cbind(data.table(model = character(), 
-  #                                     hyperparam_idx = integer()),
-  #                          rmse_res_cols)
+  #names of rmspe columns for data.table
+  colnames(rmspe_res_cols) <- paste0("rmspe_rpt",
+                                     rep(1:3, each = 5),
+                                     "_fold",
+                                     rep(1:5, times = 3))
+
+  # Create data.table to store rmspe results
   dt.results.rmspe <- cbind(data.table(model = character(), 
-                                      hyperparam_idx = integer()),
+                                       hyperparam_idx = integer()),
                             rmspe_res_cols)
-  # dt.results.mae <- cbind(data.table(model = character(), 
-  #                                    hyperparam_idx = integer()),
-  #                         mae_res_cols)
   
   # Loop over all hyperparam sets and compute RMSE for each of 15 partitions
   print(paste0(mod_name, ": ", Sys.time()))
   
-  for (row in 1:nrow(param_sets)){
-    #print(paste0("Param row ", row))
-    params <- as.list(unlist(param_sets[row,]))  # get one set of parameters
-    
-    # dt.results.rmse <- rbind(dt.results.rmse,
-    #                          cv_config(dt_split, params, row+idx_start-1, mod_name)$rmse)
+  for (row_num in start:end){
+    # get set of hyperparameters
+    params <- as.list(unlist(param_sets[row,]))  
+
+    # Run 3 rpt 5 flod CV for this hyperparam set with cv_convig and append
     dt.results.rmspe <- rbind(dt.results.rmspe,
-                             cv_config(dt_split, params, row+idx_start-1, mod_name)$rmspe)
-    # dt.results.mae <- rbind(dt.results.mae,
-    #                         cv_config(dt_split, params, row+idx_start-1, mod_name)$mae)
+                              cv_config(dt_split, params, row_num, mod_name)$rmspe)
     
-    #Overwrite every time in case job times out
-    # fwrite(dt.results.rmse, paste0(fname_results, "rmse.csv"))
-    # fwrite(dt.results.rmspe, paste0(fname_results, "rmspe.csv"))
-    # fwrite(dt.results.mae, paste0(fname_results, "mae.csv"))
+    # print status
     print(paste0("Completed hyperparam set ", row+idx_start-1,". ", Sys.time()))
   }
   
-  # dt.results.rmse[ , res_mean := rowMeans(.SD), .SDcols = paste0("rmse_repeat",
-  #                                                                formatC(ceiling(1:15/5)),
-  #                                                                "_fold",
-  #                                                                formatC((1:15-1)%%5 + 1))]
-  dt.results.rmspe[ , res_mean := rowMeans(.SD), .SDcols = paste0("rmspe_repeat",
-                                                                 formatC(ceiling(1:15/5)),
-                                                                 "_fold",
-                                                                 formatC((1:15-1)%%5 + 1))]
-  # dt.results.mae[ , res_mean := rowMeans(.SD), .SDcols = paste0("mae_repeat",
-  #                                                               formatC(ceiling(1:15/5)),
-  #                                                               "_fold",
-  #                                                               formatC((1:15-1)%%5 + 1))]
+  #calculate mean RMSPE for each model configuration (row)
+  dt.results.rmspe[ , rmspe_mean := rowMeans(.SD), .SDcols = colnames(rmspe_res_cols)]
   
-  # Overwrite at end with mean RMSE added
-  # fwrite(dt.results.rmse, paste0(fname_results, "rmse.csv"))
-  fwrite(dt.results.rmspe, paste0(fname_results, "rmspe.csv"))
-  # fwrite(dt.results.mae, paste0(fname_results, "mae.csv"))
+
+  #append columns with model configuration info
+  
+  # Save csv file to disk
+  fwrite(dt.results.rmspe, fname_results)
 }
 
 
-# for XGB to tune subset of parameters
-tune_subset <- function(mod_name, param_sets, dt_split,
-                        fname_results = "idi/XGB_assess_results_",
-                        start, end) {
-  # ex: start = 1, end = 50
-  # fname = "idi/XGB_assess_results_0001to0050.csv"
-  
-  fname <- paste0(fname_results, formatC(start, width=4, flag=0), "to",
-                  formatC(end, width=4, flag=0), "_")
-  
-  run_mod_assess(mod_name,
-                 param_sets[start:end, ], dt_split,
-                 idx_start = start,
-                 fname_results = fname)
-}
 
 
-# CV CONFIGURATION (called by model assessment function)
+
+
+
+# CV CONFIGURATION (called by tune_subset() function)
 # For param set, perform CV across all inner folds
 # and return RMSE for each of 3X5=15 inner CV sets
 
-# outer_split <- readRDS("./1_data/rsplits/data_hgb_only/rsplit_factors_pred_hgb.rds")
-
-cv_config <- function(outer_split, params, row_num, mod_name){
+cv_config <- function(dt_split, params, row_num, mod_name){
   
-  # rmse_outcome <- list(model=mod_name, hyperparam_idx = row_num)
+  # # get data for this model configuration
   rmspe_outcome <- list(model=mod_name, hyperparam_idx = row_num)
-  #mae_outcome <- list(model=mod_name, hyperparam_idx = row_num)
   
-  for (row_outer in 1:nrow(outer_split)){  # 15 rows
-    # print(paste0(" outer row ", row_outer))
-    inner_split <- outer_split$inner_resamples[[row_outer]]
-    #Table to store predictions across each inner fold
-    dt_inner_fold_preds <- data.table("prediction"= numeric(),
-                                      "fu_outcome"= numeric())
-    
-    for (row_inner in 1:nrow(inner_split)){
-      #print(paste0("  inner row ", row_inner))
+  for (fold in 1:5){
+    for (rpt in 1:3){
+      
+      # get data for this fold/repeat
+      # validate_date is data in fold
+      # train_data is all other data
+      train_data <- analysis(rsplit_obj)   #JENNIFER THESE MAY NOT BE RIGHT ANYMORE
+      validate_data <- assessment(rsplit_obj)
+      
+      # inner_split <- outer_split$inner_resamples[[row_outer]]
+      
+      #Create to store predictions for the selected fold/repeat (for RMSPE calcs)
+      dt_preds_for_fold <- data.table("prediction"= numeric(),
+                                        "fu_outcome"= numeric())
+      
+      #train model & save predictions in table
       tryCatch({
-        dt_inner_fold_preds <- rbind(
-          dt_inner_fold_preds,
-          mod_eval(inner_split$splits[[row_inner]], params, mod_name)
+        dt_preds_for_fold <- rbind(
+          dt_preds_for_fold,
+          mod_eval(train_data,
+                   validate_data, 
+                   params, 
+                   mod_name)
         )
       }, error = function(error_condition){
-        cat("Could not fit on this inner fold")
+        cat("Could not fit model on rpt ", rpt, " fold ", fold)
       })
+      
+      #calculate RMSPE
+      EPSILON <-  1e-10  # prevent division by zero
+      rmspe <- (sqrt(mean(((dt_inner_fold_preds$fu_outcome - dt_inner_fold_preds$prediction) / 
+                             (dt_inner_fold_preds$fu_outcome + EPSILON))^2))) * 100
+      
+      rmspe_outcome[paste0("rmspe_rpt",
+                           rpt,
+                           "_fold",
+                           fold)] <- rmspe
+      
     }
-    
-    EPSILON <-  1e-10  # prevent division by zero
-    # rmspe <- (sqrt(mean(((y_true - y_pred) / (y_true + EPSILON))**2))) * 100
-    rmspe <- (sqrt(mean(((dt_inner_fold_preds$fu_outcome - dt_inner_fold_preds$prediction) / (dt_inner_fold_preds$fu_outcome + EPSILON))**2))) * 100
-    
-    # Calc RMSE, MAE across all folds using postResample from caret
-    # res <- caret::postResample(dt_inner_fold_preds$fu_outcome,
-    #                            dt_inner_fold_preds$prediction)  # RMSE     MAE 
-    #rmse <- res[1]
-    #mae <- res[3]
-    
-    # rmse_outcome[paste0("rmse_repeat",
-    #                     formatC(ceiling(row_outer/5)),
-    #                     "_fold",
-    #                     formatC((row_outer-1)%%5 + 1))] <- rmse
-    
-    rmspe_outcome[paste0("rmspe_repeat",
-                        formatC(ceiling(row_outer/5)),
-                        "_fold",
-                        formatC((row_outer-1)%%5 + 1))] <- rmspe
-    
-    # mae_outcome[paste0("mae_repeat",
-    #                    formatC(ceiling(row_outer/5)),
-    #                    "_fold",
-    #                    formatC((row_outer-1)%%5 + 1))] <- mae
-    
-    # add root mean squared percentage
-    
   }
-  all_metrics <- list(rmspe=rmspe_outcome)
-  # all_metrics <- list(rmse=rmse_outcome, rmspe=rmspe_outcome, mae=mae_outcome)
-  return(all_metrics)
+  
+  return(rmspe_outcome)
 }
+
+
 
 
 
 
 # MODEL EVALUATION (called by cv_config)
-#  for a given train-test split in the rsplit_object, set of hyperparameters,
-#  assess performance. When used for ensembles, set return_train_pred to
+#  for a given train data and assess data,
+#. model algorithm/name, and hyperparameter set,
+#. run the model and return RMSPE.
+#  When used for ensembles, set return_train_pred to
 #  true so those can be accessed to tune the ensemble
 
-# rsplit_rds <- readRDS("./1_data/rsplits/data_hgb_only/rsplit_factors_pred_hgb.rds")
-# f <- analysis(rsplit_rds$splits[[1]])
-# ncol_rsplit <- ncol(analysis(rsplit_rds$splits[[1]]))
-mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
-  # The "analysis" data are those that we selected in the resample. 
-  # For 5-fold cross-validation, this is the 80% of the data.
-  
-  # The assessment data are usually the section of the original data not covered by the analysis set. 
-  # Again, in 5-fold CV, this is the 20% held out. 
-  
-  train_data <- analysis(rsplit_obj)  
-  test_data <-  assessment(rsplit_obj)
+mod_eval <- function(train_data, 
+                     validate_data, 
+                     params, 
+                     mod_name, 
+                     return_train_pred=FALSE){
+  set.seed(444)  # set the seed for reproducibility
   
   # change response variable to "fu_outcome" for easier coding below
   lookup <- c(fu_outcome = "fu_hgb", fu_outcome = "fu_log_ferritin")
@@ -241,7 +204,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
   
   # RANDOM FOREST
   if (mod_name == "RF"){
-    set.seed(250)
     rf_fit <- randomForest(fu_outcome~.,  # fu_hgb, fu_log_ferritin
                            data = train_data,
                            nodesize = params$nodesize,
@@ -266,7 +228,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
     
     #ELASTIC NET (NO INTERACTIONS)
   } else if (mod_name == "EN"){
-    set.seed(250)  # set the seed for reproducibility
     fit <- glmnet(x = as(data.matrix(train_data[ , 1:(ncol_rsplit-1)]), "dgCMatrix"),
                   y = train_data$fu_outcome,  # fu_hgb, fu_ferritin
                   lambda = params$lambda,
@@ -290,8 +251,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
       fu_outcome = unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
     }
     
-    
-    
     # XGB GRADIENT BOOSTED MACHINE
   } else if (mod_name == "XGB"){
     # Extract train and test sets in xgb's special format
@@ -301,7 +260,6 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
                            label = as.matrix(test_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
     
     # Fit model
-    set.seed(250)  # set the seed for reproducibility
     xgb.fit = xgb.train(params = params,
                         data = xgb.train,
                         nrounds = 10000,
@@ -327,6 +285,10 @@ mod_eval <- function(rsplit_obj, params, mod_name, return_train_pred=FALSE){
       fu_outcome = unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
     }
   }
+  
+  
+  # CatBoost TO BE ADDED 
+  
   
   results <- cbind(preds,fu_outcome)
   

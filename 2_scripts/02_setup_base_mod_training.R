@@ -1,7 +1,7 @@
 #### Main Model (Train on RISE and use these models to validate on SANBS, Vitalant, and Sanquin)
 # No Race variable
 
-# Create nested cross validation objects and model hyperparameter sets 
+# Creates cross validation objects, nested cross validation objects, and model hyperparameter sets 
 
 library(data.table)
 library(rsample)
@@ -27,8 +27,10 @@ if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory, recursive = TRUE)
 }
 
-# GENERATE NESTED CV OBJECTS -----------
-
+# GENERATE MODEL SELECTION CV OBJECTS -----------------------
+#. Will use 3 repeats of 5-fold cross-validation
+#.  to select the top model based on RMSPE
+#.  for each prediction task (hgb, ferritin).
 # We have 2 versions of the prediction task:
 #  *hgb - predicting follow up hemoglobin
 #  *ferr - predicting follow up ferritin
@@ -37,12 +39,121 @@ if (!dir.exists(intermediate_directory)) {
 #   requirements for each of the prediction models:
 #    *onehot - categorical variable onehot encoded
 #    *factor - categorical features as factors
-# So a total of 4 rsplit objects will be created
+# So a total of 4 objects will be created
+#
+# The folds are defined in such a way that, for each re-sample, 
+#.  all donations from a donor appear in the same CV fold.
 
 # Read data for model development (md) dataset
 
 dat_paths <- c("./3_intermediate/private/hgb_ferr_rise.csv",
                "./3_intermediate/private/hgb_only_rise.csv")
+
+
+
+
+
+
+# GENERATE NESTED CV OBJECTS -----------
+#. Will construct 3 outer CV folds in which the model 
+#. selection will be repeated to obtain three estimates of the RMSPE of 
+#. our model selection procedure that are not at risk of overfitting
+#. (the model selected in nested CV may differ from the 
+#. model selected, that is OK).
+
+
+
+
+
+
+# DEFINE HYPERPARAMETER SETS -------
+#,   Save .csv file for each algorithm where each row contains a  
+#.   hyperparameter combo to be assessed.
+
+intermediate_directory <- './3_intermediate/hyperparameters'
+if (!dir.exists(intermediate_directory)) {
+  dir.create(intermediate_directory)
+}
+# models to train
+# elastic net, random forest, gradient boosting, svm regression
+
+# XGB MODEL - 4800 hyperparams
+xgb_param_sets <- expand.grid(
+  eta = c(0.01, 0.05, 0.1, 0.2, 0.3),  # eta: learning rate or shrinkage (shrink contribution of each new tree)
+  max_depth = seq(2, 20, 2),  # max_depth: tree depth
+  min_child_weight = c(1, 2, 4, 8),
+  subsample = c(0.5, 0.65, 0.8, 1),
+  colsample_bytree = c(0.5, 0.6, 0.7, 0.8, 0.9, 1)
+  
+  # Regularization - use if large difference btwn training error and test error
+  # gamma = c(1, 5, 10 , 15, 20)
+  # alpha - L1 regularization
+  # lambda - L2 regularization
+)
+fwrite(xgb_param_sets, "./3_intermediate/hyperparameters/xgb_hyperparameters.csv")
+
+# RANDOM FOREST - 448 hyperparams
+rf_param_sets <- expand.grid(
+  nodesize = c(1,2,4,8),
+  mtry = c(1, 2, 3, 4),
+  ntree = seq(200, 2800, 200),  # number of trees: start with 10 times num_features
+  replace = c(TRUE, FALSE)
+)
+fwrite(rf_param_sets, "./3_intermediate/hyperparameters/rf_hyperparameters.csv")
+
+# ELASTICNET - 1051 hyperparams
+en_param_sets <- rbind(
+  data.table(alpha=0, lambda=0),
+  expand.grid(
+    alpha = seq(0, 1, 0.05),  # alpha=0: ridge, alpha=1: lasso, 0<alpha<1: elastic net
+    lambda = seq(0.01, 0.5, 0.01)  # shrinkage parameter: higher value shrinks coeff to zero more
+  )
+)
+fwrite(en_param_sets, "./3_intermediate/hyperparameters/en_hyperparameters.csv")
+
+# Catboost - TO BE ADDED (check with Sophie)
+
+
+
+# RUNNING MODEL SELECTION PROCEDURE ---------------------------
+
+# To run the model selection we will launch multiple
+#. jobs onto the server, each one training a subset of the
+#. model configurations and saving the resulting RMSPEs
+#. over the 3 repeats of 5-fold CV
+#. These jobs will call 03_train_base_models.R
+#. with arguments to specify which model configurations
+#. to develop
+
+
+
+
+
+
+
+# RUNNING NESTED CV VERSION OF MODEL SELECTION PROCEDURE
+#. This is identical to the original model selection procedure except
+#. repeated 3 times, one in each of the outer CV folds with 2/3 of the data.
+
+
+
+
+# NOTE:
+# Gradient boost takes way longer: 20 jobs x 40 hyperparam per job = 2-3 days
+# Elastic net fast: all hyperparams in under 2 hours (TEST TODAY)
+
+# Syntax for computing predicted outcome with direct engines.
+#Algorithm	                  Package	  Code
+# Random Forest	              ranger	  predict(obj)$predictions
+# Gradient boosting machine	  gbm	      predict(obj, type = "response", n.trees)
+# Elastic net	                glmnet	  predict(obj, newx, type = "response")
+# Catboost
+
+
+
+
+
+## CHEN-YANG CODE FROM HERE DOWN, TO BE EDITED/INTEGRATED INTO ABOVE SCAFFOLDING
 
 # Save cv split function ----
 save_cv_split <- function(df, file_path) {
@@ -166,60 +277,6 @@ for (dat_path in dat_paths) {
     # saveRDS(features_list, "./1_data/model_dev_data/data_hgb_only/mdset_features_list.RDS")
   }
 }
-
-#DEFINE HYPERPARAMETER SETS -------
-intermediate_directory <- './3_intermediate/hyperparameters'
-if (!dir.exists(intermediate_directory)) {
-  dir.create(intermediate_directory)
-}
-# models to train
-# elastic net, random forest, gradient boosting, svm regression
-
-# XGB MODEL - 4800 hyperparams
-xgb_param_sets <- expand.grid(
-  eta = c(0.01, 0.05, 0.1, 0.2, 0.3),  # eta: learning rate or shrinkage (shrink contribution of each new tree)
-  max_depth = seq(2, 20, 2),  # max_depth: tree depth
-  min_child_weight = c(1, 2, 4, 8),
-  subsample = c(0.5, 0.65, 0.8, 1),
-  colsample_bytree = c(0.5, 0.6, 0.7, 0.8, 0.9, 1)
-  
-  # Regularization - use if large difference btwn training error and test error
-  # gamma = c(1, 5, 10 , 15, 20)
-  # alpha - L1 regularization
-  # lambda - L2 regularization
-)
-fwrite(xgb_param_sets, "./3_intermediate/hyperparameters/xgb_hyperparameters.csv")
-
-# RANDOM FOREST - 448 hyperparams
-rf_param_sets <- expand.grid(
-  nodesize = c(1,2,4,8),
-  mtry = c(1, 2, 3, 4),
-  ntree = seq(200, 2800, 200),  # number of trees: start with 10 times num_features
-  replace = c(TRUE, FALSE)
-)
-fwrite(rf_param_sets, "./3_intermediate/hyperparameters/rf_hyperparameters.csv")
-
-# ELASTICNET - 1051 hyperparams
-en_param_sets <- rbind(
-  data.table(alpha=0, lambda=0),
-  expand.grid(
-    alpha = seq(0, 1, 0.05),  # alpha=0: ridge, alpha=1: lasso, 0<alpha<1: elastic net
-    lambda = seq(0.01, 0.5, 0.01)  # shrinkage parameter: higher value shrinks coeff to zero more
-  )
-)
-fwrite(en_param_sets, "./3_intermediate/hyperparameters/en_hyperparameters.csv")
-
-
-# NOTE:
-# Gradient boost takes way longer: 20 jobs x 40 hyperparam per job = 2-3 days
-# Elastic net fast: all hyperparams in under 2 hours (TEST TODAY)
-
-
-# Syntax for computing predicted class probabilities with direct engines.
-#Algorithm	                  Package	  Code
-#Random Forest	              ranger	  predict(obj)$predictions
-# Gradient boosting machine	  gbm	      predict(obj, type = "response", n.trees)
-
 
 # caret::varImp() function can be used to plot the importance metrics
 

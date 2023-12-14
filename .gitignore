@@ -5,7 +5,6 @@
 local
 1_data/private
 2_scripts/test_code
-3_intermediate
 3_intermediate/private
 3_intermediate/rsplits
 3_intermediate/model_dev_data
