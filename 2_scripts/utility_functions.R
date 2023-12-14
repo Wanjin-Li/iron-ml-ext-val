@@ -304,6 +304,8 @@ mod_eval <- function(train_data,
 #GBM uses dt_split_xgb
 #EN (no interaction) uses dt_split_xgb
 
+# JENNIFER: need to fix dt_split so it will do 5-fold 3-rpt CV, nothing about outer folds!----
+
 mod_spec_as_list <- function(mod_id, biomarkers){
   mod_id_split <- unlist(str_split(mod_id, "\\."))  #     # XGB.1406 -> XGB
   mod_name <-mod_id_split[1]  
@@ -331,6 +333,8 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
   outcome_base_mods <- list()
   EPSILON <- 1e-10  # for RMSPE to prevent division by 0
 
+  # JENNIFER- this must be fixed, should not be using outer folds!!! ---------
+  
   for (row_outer in 1:nrow(base_model_specs[[1]]$dt_split)){  # 1:15
     # Table to store predictions across each outer fold
     # Table to store predictions across each inner fold
@@ -408,119 +412,6 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
 }
 
 
-# Assess top model that is a single model only (not an ensemble)
-outer_fold_assess <- function(base_mod_spec, 
-                              path = "./3_intermediate/ensemble/",
-                              ensemble_config="",
-                              version="hgb_ferr_predict_ferr",
-                              ensemble_type="average"){
-  
-  dt_preds_all_repeats <- data.table(
-    "rpt" = numeric(),
-    "fold" = numeric(),
-    "prediction"= numeric(),
-    "fu_outcome"= numeric()
-  )
-  
-  Sys.time()
-  for (idx_rpt in 1:3){
-    #Table to store predictions across each fold of each resample
-    dt_rpt_preds <- data.table(
-      "fold" = numeric(),
-      "prediction"= numeric(),
-      "fu_outcome"= numeric()
-    )
-    for (idx_fld in 1:5){
-      rsplit_obj<-filter(base_mod_spec$dt_split, id==paste0("Repeat",idx_rpt) & id2==paste0("Fold",idx_fld))$splits[[1]]
-      dt_rpt_preds <- rbind(
-        dt_rpt_preds,
-        cbind(
-          "fold" = idx_fld,
-          mod_eval(rsplit_obj,
-                   base_mod_spec$hyperparams,
-                   base_mod_spec$mod_name,
-                   return_train_pred=FALSE)
-        ))
-      
-      print(paste0("Fold ", idx_fld, " Repeat ", idx_rpt, " complete ",Sys.time()))
-    }
-    dt_preds_all_repeats <- rbind(dt_preds_all_repeats,
-                                  cbind("rpt" = idx_rpt, dt_rpt_preds))
-  }
-  fwrite(dt_preds_all_repeats, 
-         file=paste0(path, paste0("top_model_assess_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
-}
-
-
-# Assess ensemble model on outer folds (3 repeats of fold CV)
-outer_fold_assess_ensemble <- function(base_model_specs, 
-                                       path = "./3_intermediate/ensemble/",
-                                       ensemble_config="",
-                                       version="hgb_ferr_predict_ferr",
-                                       ensemble_type="average"){
-  
-  dt_preds_all_repeats <- data.table(
-    "rpt" = numeric(),
-    "fold" = numeric(),
-    "donor_idx"=numeric(),
-    "prediction"= numeric(),
-    "fu_outcome"= numeric()
-  )
-  
-  Sys.time()
-  for (idx_rpt in 1:3){
-    #Table to store predictions across each fold of each resample
-    dt_rpt_preds <- data.table(
-      "fold" = numeric(),
-      "donor_idx"=numeric(),
-      "prediction"= numeric(),
-      "fu_outcome"= numeric()
-    )
-    for (idx_fld in 1:5){
-      #Table to store predictions across each inner fold
-      dt_single_fold_preds <- data.table(
-        "base_model" = character(),
-        "prediction"= numeric(),
-        "fu_outcome"= numeric()
-      )
-      #Train base models
-      for (base_model_idx in 1:length(base_model_specs)){
-        #Generate predictions on single inner fold
-        # Keep raw predictions from both train and test data within the fold
-        #Save accuracy from training data
-        rsplit_obj<-filter(base_model_specs[[base_model_idx]]$dt_split,
-                           id==paste0("Repeat",idx_rpt) &
-                             id2==paste0("Fold",idx_fld))$splits[[1]]
-        
-        
-        dt_single_fold_preds <- rbind(
-          dt_single_fold_preds,
-          cbind("base_model" = names(base_model_specs)[base_model_idx],
-                mod_eval(rsplit_obj = rsplit_obj,
-                         params = base_model_specs[[base_model_idx]]$hyperparams,
-                         mod_name = base_model_specs[[base_model_idx]]$mod_name,
-                         return_train_pred=FALSE))
-        )
-      }
-      
-      dt_single_fold_preds[, donor_idx := rep(1:(nrow(dt_single_fold_preds)/length(base_model_specs)), length(base_model_specs))]
-      
-      #model simple average
-      dt_rpt_preds<-rbind(dt_rpt_preds,
-                          cbind("fold"=idx_fld,
-                                dt_single_fold_preds[, list(
-                                  "prediction"=mean(prediction),
-                                  "fu_outcome"=mean(fu_outcome)),
-                                  by=donor_idx]))
-      
-      print(paste0("Fold ", idx_fld, " Repeat ", idx_rpt, " complete ",Sys.time()))
-    }
-    dt_preds_all_repeats <- rbind(dt_preds_all_repeats,
-                                  cbind("rpt" = idx_rpt, dt_rpt_preds))
-  }
-  fwrite(dt_preds_all_repeats, 
-         file=paste0(path, paste0("top_model_assess_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
-}
 
 
 train_mod <- function(mod_name, params, features) {

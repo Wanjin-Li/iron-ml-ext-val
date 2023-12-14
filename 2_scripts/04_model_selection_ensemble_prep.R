@@ -14,78 +14,153 @@ library(purrr)
 theme_set(theme_bw())
 source('https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R')
 
-# TUNING RESULTS ----
+# EXTRACT TUNING RESULTS ----
 # Assessing model selection results
-prediction_tasks <- c("predict_hgb", "predict_ferr")
-# metric_patterns <- c("*rmse.csv", "*mae.csv")
-metric_patterns <- c("*rmspe.csv")
 
-for (prediction_task in prediction_tasks) {
-  for (metric_pattern in metric_patterns) {
-    if (prediction_task == "predict_hgb") {
-      # Read in tuning results
-      tune_results_data_hgb_only <- list.files(path="./3_intermediate/tune_results/main_model/predict_hgb/data_hgb_only",
-                                               pattern=metric_pattern,
-                                               full.names = TRUE) %>% map_df(~fread(.))
-      
-      tune_results_data_hgb_ferr <- list.files(path="./3_intermediate/tune_results/main_model/predict_hgb/data_hgb_ferr",
-                                               pattern=metric_pattern,
-                                               full.names = TRUE) %>% map_df(~fread(.))
-      
-    } else if (prediction_task == "predict_ferr") {
-      # Read in tuning results
-      tune_results_data_hgb_only <- list.files(path="./3_intermediate/tune_results/main_model/predict_ferr/data_hgb_only",
-                                               pattern=metric_pattern,
-                                               full.names = TRUE) %>% map_df(~fread(.))
-      
-      tune_results_data_hgb_ferr <- list.files(path="./3_intermediate/tune_results/main_model/predict_ferr/data_hgb_ferr",
-                                               pattern=metric_pattern,
-                                               full.names = TRUE) %>% map_df(~fread(.))
-    }
-    tune_results_all <- rbind(cbind(tune_results_data_hgb_only, version="Hemoglobin only"),
-                              cbind(tune_results_data_hgb_ferr, version="Hemoglobin and Ferritin"))
-    
-    
-    metric <- str_replace(metric_pattern, "\\*", "") %>% str_replace(., ".csv", "_")  # *rmse.csv -> rmse_
-    
-    tune_results_all[ , res_sd := sd(.SD), .SDcols = paste0(metric, "repeat",
-                                                            formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), 
-                                                            by=1:nrow(tune_results_all)]
-    tune_results_all[ , res_lb := res_mean - res_sd]
-    tune_results_all[ , res_ub := res_mean + res_sd]
-    tune_results_all[, modelID := paste0(model, ".", hyperparam_idx)]
-    
-    # *rmse.csv, *mae.csv
-    setorder(tune_results_all, version, res_mean)  # lowest value at top (lower error better)
-    
-    # rmse_tune_results_all_predict_hgb.csv
-    file_out <- paste0("./3_intermediate/tune_results/main_model/",
-                       metric,
-                       "tune_results_all_",
-                       prediction_task,
-                       ".csv")
-    # ex: "./3_intermediate/tune_results/main_model/rmspe_tune_results_all_predict_hgb.csv"
-    fwrite(tune_results_all, file_out)  
-  }
+#function takes all the csv files matching the pattern, concatenates them into a single data.table
+#. and adds 2 columns for version and predicted_biomarker
+extract_tune_files <- function(train_biomarker, prediction_task){
+  dt <- list.files(path="./3_intermediate/tune_results/",
+                   pattern = paste0("^base_mod_tune_", train_biomarker,"_", prediction_task),
+                   full.names = TRUE) |>
+    map_df(~fread(.))
+  
+  #Add columns for version and predicted_biomarker
+  dt[, version := ifelse(version == "data_hgb_only", "Hemoglobin only", "Hemoglobin and Ferritin")]
+  dt[, predicted_biomarker := ifesle(prediction_task == "predict_hgb", "Hemoglobin", "Ferritin")]
+  
+  return(dt)
 }
 
-# # PLOT TUNING RESULTS FOR ALL HYPERPARAMETER SETS ----
-# ggplot(tune_results_all, aes(x = model, y = res_mean, fill=version, color=version))+
+# Extract into 4 data.tables
+dt_tune_results_hgb_only_predict_hgb <- extract_tune_files("data_hgb_only", "predict_hgb")
+dt_tune_results_hgb_only_predict_ferr <- extract_tune_files("data_hgb_only", "predict_ferr")
+dt_tune_results_hgb_ferr_predict_hgb <- extract_tune_files("data_hgb_ferr", "predict_hgb")
+dt_tune_results_hgb_ferr_predict_ferr <- extract_tune_files("data_hgb_ferr", "predict_ferr")
+
+# merge into one big datatable
+dt_tune_results <- rbindlist(list(dt_tune_results_hgb_only_predict_hgb,
+                                   dt_tune_results_hgb_only_predict_ferr,
+                                   dt_tune_results_hgb_ferr_predict_hgb,
+                                   dt_tune_results_hgb_ferr_predict_ferr))
+
+#RMSPE col names
+cols_rmspe <- paste0("rmspe_rpt",
+                     rep(1:3, each = 5),
+                     "_fold",
+                     rep(1:5, times = 3))
+
+# Compute upper and lower CI bounds for each model configuration
+# from the standard deviation
+# using students t distribution with 14 degrees of freedom
+dt_tune_results[, rmspe_sd := sd(.SD), .SDcols = cols_rmspe]
+dt_tune_results[, rmspe_upper := rmspe_sd + qt(0.975, 14)*rmspe_sd/sqrt(15)]
+dt_tune_results[, rmspe_lower := rmspe_sd - qt(0.975, 14)*rmspe_sd/sqrt(15)]
+
+#save
+fwrite(dt_tune_results, file = "./3_intermediate/dt_tune_results_all.csv")
+
+
+
+
+
+
+
+
+
+
+
+# ENSEMBLE MODEL SELECTION -----
+
+
+# put all this in loop to do for each versuib/prediction task
+
+for (version in c()){
+  for (predicted_biomarker in c()){
+    dt_tune_results_temp <- dt_tune_results[version == "Hemoglobin and Ferritin" &
+                                              predicted_biomarker == "Hemoglobin",]
+    
+    # Extract lower bound of top model
+    
+    # Select subset of models not statistically different from top model
+    
+    # ENSEMBLE 1: model architecture not considered
+    
+    # Calculate pairwise correlation between each base model config in set
+    
+    # Select unique base model configs in rows 1-3
+    
+    # If <6 models included, continue down list until you have 6 model configs in your list
+    
+    
+    # ENSEMBLE 2: Top 2 models of top 3 archetecture
+    
+    # Get top mean RMSPE of each model architecture
+    
+    # Extract top 2 models of top 3 architectures
+    
+    
+    # Assess the ensembles in cross validation
+    
+
+    # base_model_specs() should return a list with mod_name, hyperparameters, data for 5fld 3rpt CV
+    
+    # run_ensemble_assess()
+    
+    
+    
+  }
+  }
+
+
+
+# FINAL MODEL SELECTION -----
+
+
+# Add ensemble 1 and 2 to the tune_result_all table
+
+
+# Select top model for each prediction task
+
+
+
+# PLOT TUING RESULTS WITH ENSEMBLE ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+# . ------
+# . ------
+# . ------
+# CHEN-YANG CODE ------
+# SOME OF WHICH TO BE ADAPTED INTO ABOVE, OTHER TO BE DELETED -Alton
+
+# # PLOT TUNING RESULTS ----
+# ggplot(dt_tune_results, aes(x = model, y = res_mean, fill=version, color=version))+
 #   geom_sina()+
 #   theme(legend.position = "bottom")+
 #   ylab("Mean overall AUC\ncross validation across 15 tuning sets")+xlab("Model types")+
 #   scale_x_discrete(labels = c("Elastic Net", "Elastic net\nwith interactions", "Random forest", "Regression trees", "Gradient\nboosted trees"))
 
-plot_model_hyperparams <- function(tune_results_all, predict_biomarkers, metric) {
+plot_model_hyperparams <- function(dt_tune_results, predict_biomarkers, metric) {
   mod_names <- c("Gradient boosted trees", "Random forest", "Elastic net")
   names(mod_names)<-c("XGB", "RF", "EN")
   
   metric_upper <- toupper(metric)
-  top_mods <- tune_results_all[, list(top_mean_res = min(res_mean)), by = version]
+  top_mods <- dt_tune_results[, list(top_mean_res = min(res_mean)), by = version]
   print(top_mods)
-  tune_results_all[, model := factor(model, levels = names(mod_names))]
+  dt_tune_results[, model := factor(model, levels = names(mod_names))]
   
-  ggplot(tune_results_all, aes(x = version, y = res_mean, fill=version))+
+  ggplot(dt_tune_results, aes(x = version, y = res_mean, fill=version))+
     facet_wrap(vars(model), ncol=1, labeller = labeller(model=mod_names))+
     coord_flip()+
     geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8)+
@@ -110,13 +185,15 @@ plot_model_hyperparams <- function(tune_results_all, predict_biomarkers, metric)
 
 f1 <- fread("./3_intermediate/tune_results/main_model/rmspe_tune_results_all_predict_hgb.csv")
 f3 <- fread("./3_intermediate/tune_results/main_model/rmspe_tune_results_all_predict_ferr.csv")
-plot_model_hyperparams(tune_results_all=f1, predict_biomarkers="predict_hgb", metric="RMSPE") 
-plot_model_hyperparams(tune_results_all=f3, predict_biomarkers="predict_ferr", metric="RMSPE") 
+plot_model_hyperparams(dt_tune_results=f1, predict_biomarkers="predict_hgb", metric="RMSPE") 
+plot_model_hyperparams(dt_tune_results=f3, predict_biomarkers="predict_ferr", metric="RMSPE") 
 
 min(f1[f1$version == "Hemoglobin and Ferritin"]$res_mean)  # predict hgb
 min(f1[f1$version == "Hemoglobin only"]$res_mean)
 min(f3[f3$version == "Hemoglobin and Ferritin"]$res_mean)  # predict ferr
 min(f3[f3$version == "Hemoglobin only"]$res_mean)
+
+
 
 
 
@@ -127,12 +204,12 @@ tune_results_all_predict_ferr <- fread("./3_intermediate/tune_results/main_model
 setorder(tune_results_all_predict_ferr, version, res_mean)  # sort by RMSPE
 
 # function to get correlations
-get_model_corr <- function(tune_results_all, vers, model_name) {
-  setorder(tune_results_all, version, res_mean)
+get_model_corr <- function(dt_tune_results, vers, model_name) {
+  setorder(dt_tune_results, version, res_mean)
   
-  Top_mod_mean_res <- unlist(tune_results_all[version==vers & model==model_name, "res_mean"][1])
-  Top_mod_res_sd <- unlist(tune_results_all[version==vers & model==model_name, "res_sd"][1])
-  top_mods <- tune_results_all[version==vers & model==model_name & 
+  Top_mod_mean_res <- unlist(dt_tune_results[version==vers & model==model_name, "res_mean"][1])
+  Top_mod_res_sd <- unlist(dt_tune_results[version==vers & model==model_name, "res_sd"][1])
+  top_mods <- dt_tune_results[version==vers & model==model_name & 
                                  res_mean <= (Top_mod_mean_res + Top_mod_res_sd),]  # within 1 s.d. of top model
   
   top_mods <- top_mods[ , .SD, .SDcols = c("modelID", paste0("rmspe_", "repeat",
@@ -151,24 +228,24 @@ get_model_corr <- function(tune_results_all, vers, model_name) {
 ######## take a look at plot_model_hyperparams plot outputs to decide which base models to use
 
 # Get Ensemble base models - Predict Hemoglobin ----
-tune_results_all <- tune_results_all_predict_hgb
+dt_tune_results <- tune_results_all_predict_hgb
 
 ## Version: Hemoglobin and Ferritin ----
 # Take 6 models: 5 XGB + 1 RF
 # Top XGB (+ 4 XGB within 1 sd of top XGB that are least correlated)
 # Top RF
 vers <- "Hemoglobin and Ferritin"  
-corr <- get_model_corr(tune_results_all=tune_results_all, vers=vers, model_name="XGB")  # select 4 least correlated models
-tune_results_all[version==vers & model=="XGB", "modelID"][[1]][1]
+corr <- get_model_corr(dt_tune_results=dt_tune_results, vers=vers, model_name="XGB")  # select 4 least correlated models
+dt_tune_results[version==vers & model=="XGB", "modelID"][[1]][1]
 head(corr)
 
 ######## take a look at corr and select models
-mods_for_ensemble_hgb_ferr_predict_hgb <- c(tune_results_all[version==vers & model=="XGB", "modelID"][[1]][1],  # top xgb model
+mods_for_ensemble_hgb_ferr_predict_hgb <- c(dt_tune_results[version==vers & model=="XGB", "modelID"][[1]][1],  # top xgb model
                                             as.character(corr[1, Var1]),
                                             as.character(corr[1, Var2]),
                                             as.character(corr[2, Var1]),
                                             as.character(corr[2, Var2]),
-                                            tune_results_all[version==vers & model=="RF", "modelID"][[1]][1])  # top rf model
+                                            dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1])  # top rf model
 mods_for_ensemble_hgb_ferr_predict_hgb
 
 ## Version: Hemoglobin only ----
@@ -176,51 +253,51 @@ mods_for_ensemble_hgb_ferr_predict_hgb
 # Top XGB (+ 4 XGB within 1 sd of top XGB that are least correlated)
 # Top RF
 vers <- "Hemoglobin only"  
-corr <- get_model_corr(tune_results_all=tune_results_all, vers=vers, model_name="XGB") 
-tune_results_all[version==vers & model=="XGB", "modelID"][[1]][1]
+corr <- get_model_corr(dt_tune_results=dt_tune_results, vers=vers, model_name="XGB") 
+dt_tune_results[version==vers & model=="XGB", "modelID"][[1]][1]
 head(corr)
 
 ########## take a look at corr and select models
-mods_for_ensemble_hgb_only_predict_hgb <- c(tune_results_all[version==vers & model=="XGB", "modelID"][[1]][1],  # top xgb model
+mods_for_ensemble_hgb_only_predict_hgb <- c(dt_tune_results[version==vers & model=="XGB", "modelID"][[1]][1],  # top xgb model
                                             as.character(corr[1, Var1]),
                                             as.character(corr[1, Var2]),
                                             as.character(corr[2, Var2]),
                                             as.character(corr[3, Var2]),
-                                            tune_results_all[version==vers & model=="RF", "modelID"][[1]][1])
+                                            dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1])
 mods_for_ensemble_hgb_only_predict_hgb
 
 
 # Get Ensemble base models - Predict Ferritin ----
-tune_results_all <- tune_results_all_predict_ferr
+dt_tune_results <- tune_results_all_predict_ferr
 
 ## Version: Hemoglobin and Ferritin ----
 # Take 6 models: 5 EN + 1 RF
 # Top EN (+ 4 EN within 1 sd of top EN that are least correlated)
 # Top RF
 vers <- "Hemoglobin and Ferritin"  
-corr <- get_model_corr(tune_results_all=tune_results_all, vers=vers, model_name="EN") 
-tune_results_all[version==vers & model=="EN", "modelID"][[1]][1]
+corr <- get_model_corr(dt_tune_results=dt_tune_results, vers=vers, model_name="EN") 
+dt_tune_results[version==vers & model=="EN", "modelID"][[1]][1]
 head(corr)
 
 # take a look at corr and select models (make sure correlation does not have top model)
-mods_for_ensemble_hgb_ferr_predict_ferr <- c(tune_results_all[version==vers & model=="EN", "modelID"][[1]][1],  # top EN model
+mods_for_ensemble_hgb_ferr_predict_ferr <- c(dt_tune_results[version==vers & model=="EN", "modelID"][[1]][1],  # top EN model
                                             as.character(corr[1, Var1]),  # row 1 col 1
                                             as.character(corr[1, Var2]),
                                             as.character(corr[2, Var1]),
                                             as.character(corr[3, Var1]),
-                                            tune_results_all[version==vers & model=="RF", "modelID"][[1]][1])
+                                            dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1])
 mods_for_ensemble_hgb_ferr_predict_ferr
 
 ## Version: Hemoglobin only ----
 # Take 6 models: 6 RF
 # Top RF (+ 5 RF within 1 sd of top RF that are least correlated)
 vers <- "Hemoglobin only"  
-corr <- get_model_corr(tune_results_all=tune_results_all, vers=vers, model_name="RF") 
-tune_results_all[version==vers & model=="RF", "modelID"][[1]][1]  # top mod
+corr <- get_model_corr(dt_tune_results=dt_tune_results, vers=vers, model_name="RF") 
+dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1]  # top mod
 head(corr)
 
 # take a look at corr and select models (make sure correlation does not have top model)
-mods_for_ensemble_hgb_only_predict_ferr <- c(tune_results_all[version==vers & model=="RF", "modelID"][[1]][1],  # top RF model
+mods_for_ensemble_hgb_only_predict_ferr <- c(dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1],  # top RF model
                                             as.character(corr[1, Var1]),
                                             as.character(corr[1, Var2]),
                                             as.character(corr[2, Var1]),
