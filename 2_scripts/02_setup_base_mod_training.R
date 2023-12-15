@@ -164,8 +164,8 @@ save_cv_split <- function(df, file_path) {
   # https://cran.r-project.org/web/packages/rsample/rsample.pdf
   # reference for vfold_cv and nested_cv
   rsplit_res <- nested_cv(df,
-                          outside = vfold_cv(v=5, repeats=3),
-                          inside = vfold_cv(v=5))
+                          outside = vfold_cv(v=5, repeats = 3),
+                          inside = vfold_cv(v=5)) # repeats=2  does resampling on inner loop twice
   saveRDS(rsplit_res, file_path)
 }
 

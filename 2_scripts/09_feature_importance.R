@@ -139,7 +139,9 @@ plot_feature_importance <- function(df, path_to_save) {
     geom_boxplot(aes(x=reorder(feature, RMSPE_percentage_change, FUN = median), y=RMSPE_percentage_change))+
     coord_flip()+geom_hline(yintercept=0, color="red")+
     scale_y_continuous(name = "Change in RMSPE")+  #  (RMSPE - baseline RMPSE)
-    xlab("")
+    xlab("")+
+    theme(axis.text=element_text(size=12))
+    
   
   # ggsave(path_to_save,
   #        width = 5, height = 6, units = "in")
@@ -148,7 +150,8 @@ plot_feature_importance <- function(df, path_to_save) {
     geom_boxplot(aes(x=reorder(feature, RMSPE_percentage_change, FUN = median), y=RMSPE_percentage_change))+
     coord_flip()+geom_hline(yintercept=0, color="red")+
     scale_y_continuous(name = "Change in RMSPE")+  #  (RMSPE - baseline RMPSE)
-    xlab("")
+    xlab("")+
+    theme(axis.text=element_text(size=12))
   
   return(fig)
 }

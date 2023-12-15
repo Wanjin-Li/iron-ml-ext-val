@@ -168,16 +168,16 @@ plot_model_hyperparams <- function(dt_tune_results, predict_biomarkers, metric) 
                aes(color=version))+
     scale_x_discrete(name="", labels=c("",""))+
     scale_y_continuous(name=paste0("Mean ", metric, " of each candidate model configuration"), 
-                       labels = percent_format(scale = 1))+  # For integers, use: labels =waiver())+#, limits=c(.1,1))+
-    theme(legend.position = "bottom",
+                       labels = scales::percent_format(scale = 1))+  # For integers, use: labels =waiver())+#, limits=c(.1,1))+
+    theme(legend.position = "bottom", #legend.spacing.x = unit(0.1, 'cm'),
+          axis.text.x=element_text(size=10),
+          strip.text.x = element_text(size = 15),  # facet grid text
+          #legend.text=element_text(size=8),
+          legend.margin = margin(-8,0,-8,0),
           axis.ticks.y = element_blank())+
     geom_hline(data=top_mods, aes(color=version, yintercept = top_mean_res))
   
-  # rmse_tuning_no_ensemble_predict_hgb.png
-  fname_svg <- paste0("./4_output/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".svg")
-  fname_png <- paste0("./4_output/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".png")
-  ggsave(fname_svg, width = 6, height = 5.5, unit = "in")
-  ggsave(fname_png, width = 6, height = 5.5, unit = "in")
+    return(p)
   
 }
 

@@ -77,7 +77,7 @@ top_mods_ensemble[, top:=ifelse(res_mean==min(res_mean),"Top",""), by=version]  
 top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("res_mean")],
                             id.vars=c("version","modelID","top"))
 
-ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
+p1 <- ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
   facet_wrap(vars(version), nrow=2, scales="free_y")+coord_flip()+
   geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8)+
   geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
@@ -87,11 +87,11 @@ ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
   stat_summary(fun.data = mean_se, geom = "errorbar",
                position = position_nudge(x = .2, y = 0))+
   xlab("")+
-  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = percent_format(scale=1))+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = scales::percent_format(scale=1))+
   theme(legend.position = "None")
 
-ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.svg", width = 6, height = 4.5, unit = "in")
-ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.png", width = 6, height = 4.5, unit = "in")
+#ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.svg", width = 6, height = 4.5, unit = "in")
+#ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.png", width = 6, height = 4.5, unit = "in")
 
 ## Ferritin ----
 top_mods_ensemble <- top_mods_ensemble_predict_ferr
@@ -100,7 +100,7 @@ top_mods_ensemble[, top:=ifelse(res_mean==min(res_mean),"Top",""), by=version]  
 top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("res_mean")],
                             id.vars=c("version","modelID","top"))
 
-ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
+p2 <- ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
   facet_wrap(vars(version), nrow=2, scales="free_y")+coord_flip()+
   geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8)+
   geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
@@ -110,9 +110,14 @@ ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
   stat_summary(fun.data = mean_se, geom = "errorbar",
                position = position_nudge(x = .2, y = 0))+
   xlab("")+
-  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = percent_format(scale=1))+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = scales::percent_format(scale=1))+
   theme(legend.position = "None")
 
-ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.svg", width = 6, height = 4.5, unit = "in")
-ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.png", width = 6, height = 4.5, unit = "in")
+#ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.svg", width = 6, height = 4.5, unit = "in")
+#ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.png", width = 6, height = 4.5, unit = "in")
 
+
+ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 2, nrow = 1) 
+ggsave("./4_output/figs/suppfig5_RMSPE_top_models.svg", width = 12, height = 9, unit = "in")
+
+ggsave("./4_output/figs/suppfig5_RMSPE_top_models.png", width = 12, height = 9, unit = "in")

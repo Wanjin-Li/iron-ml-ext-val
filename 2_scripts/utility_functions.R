@@ -110,7 +110,6 @@ tune_subset <- function(
   #calculate mean RMSPE for each model configuration (row)
   dt.results.rmspe[ , rmspe_mean := rowMeans(.SD), .SDcols = colnames(rmspe_res_cols)]
   
-
   #append columns with model configuration info
   
   # Save csv file to disk
