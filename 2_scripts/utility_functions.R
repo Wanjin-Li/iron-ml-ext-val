@@ -99,7 +99,7 @@ tune_subset <- function(
     # get set of hyperparameters
     params <- as.list(unlist(param_sets[row,]))  
 
-    # Run 3 rpt 5 flod CV for this hyperparam set with cv_convig and append
+    # Run 3 rpt 5 fold CV for this hyperparam set with cv_convig and append
     dt.results.rmspe <- rbind(dt.results.rmspe,
                               cv_config(dt_split, params, row_num, mod_name)$rmspe)
     
@@ -138,10 +138,8 @@ cv_config <- function(dt_split, params, row_num, mod_name){
       # get data for this fold/repeat
       # validate_date is data in fold
       # train_data is all other data
-      train_data <- analysis(rsplit_obj)   #JENNIFER THESE MAY NOT BE RIGHT ANYMORE
-      validate_data <- assessment(rsplit_obj)
-      
-      # inner_split <- outer_split$inner_resamples[[row_outer]]
+      train_data <- analysis(dt_split)   #JENNIFER THESE MAY NOT BE RIGHT ANYMORE
+      validate_data <- assessment(dt_split)
       
       #Create to store predictions for the selected fold/repeat (for RMSPE calcs)
       dt_preds_for_fold <- data.table("prediction"= numeric(),
@@ -284,11 +282,9 @@ mod_eval <- function(train_data,
       colnames(preds) <- paste0("prediction")
       fu_outcome = unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
     }
-  }
-  
-  
+  } else if (mod_name == "CB"){
   # CatBoost TO BE ADDED 
-  
+  }
   
   results <- cbind(preds,fu_outcome)
   
