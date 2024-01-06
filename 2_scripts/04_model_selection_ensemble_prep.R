@@ -40,9 +40,9 @@ dt_tune_results_hgb_ferr_predict_ferr <- extract_tune_files("data_hgb_ferr", "pr
 
 # merge into one big datatable
 dt_tune_results <- rbindlist(list(dt_tune_results_hgb_only_predict_hgb,
-                                   dt_tune_results_hgb_only_predict_ferr,
-                                   dt_tune_results_hgb_ferr_predict_hgb,
-                                   dt_tune_results_hgb_ferr_predict_ferr))
+                                  dt_tune_results_hgb_only_predict_ferr,
+                                  dt_tune_results_hgb_ferr_predict_hgb,
+                                  dt_tune_results_hgb_ferr_predict_ferr))
 
 #RMSPE col names
 cols_rmspe <- paste0("rmspe_rpt",
@@ -102,7 +102,6 @@ for (version in c()){
     
     # Assess the ensembles in cross validation
     
-
     # base_model_specs() should return a list with mod_name, hyperparameters, data for 5fld 3rpt CV
     
     # run_ensemble_assess()
@@ -110,7 +109,7 @@ for (version in c()){
     
     
   }
-  }
+}
 
 
 
@@ -168,17 +167,17 @@ plot_model_hyperparams <- function(dt_tune_results, predict_biomarkers, metric) 
                aes(color=version))+
     scale_x_discrete(name="", labels=c("",""))+
     scale_y_continuous(name=paste0("Mean ", metric, " of each candidate model configuration"), 
-                       labels = scales::percent_format(scale = 1))+  # For integers, use: labels =waiver())+#, limits=c(.1,1))+
-    theme(legend.position = "bottom", #legend.spacing.x = unit(0.1, 'cm'),
-          axis.text.x=element_text(size=10),
-          strip.text.x = element_text(size = 15),  # facet grid text
-          #legend.text=element_text(size=8),
-          legend.margin = margin(-8,0,-8,0),
+                       labels = percent_format(scale = 1))+  # For integers, use: labels =waiver())+#, limits=c(.1,1))+
+    theme(legend.position = "bottom",
           axis.ticks.y = element_blank())+
     geom_hline(data=top_mods, aes(color=version, yintercept = top_mean_res))
   
-    return(p)
-  
+  # rmse_tuning_no_ensemble_predict_hgb.png
+  fname_svg <- paste0("./4_output/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".svg")
+  fname_png <- paste0("./4_output/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".png")
+  ggsave(fname_svg, width = 6, height = 5.5, unit = "in")
+  ggsave(fname_png, width = 6, height = 5.5, unit = "in")
+
 }
 
 
@@ -210,8 +209,8 @@ get_model_corr <- function(dt_tune_results, vers, model_name) {
   Top_mod_mean_res <- unlist(dt_tune_results[version==vers & model==model_name, "res_mean"][1])
   Top_mod_res_sd <- unlist(dt_tune_results[version==vers & model==model_name, "res_sd"][1])
   top_mods <- dt_tune_results[version==vers & model==model_name & 
-                                 res_mean <= (Top_mod_mean_res + Top_mod_res_sd),]  # within 1 s.d. of top model
-  
+                                res_mean <= (Top_mod_mean_res + Top_mod_res_sd),]  # within 1 s.d. of top model
+
   top_mods <- top_mods[ , .SD, .SDcols = c("modelID", paste0("rmspe_", "repeat",
                                                              formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)))]
   top_mods<-dcast(melt(top_mods, id.vars="modelID"), variable ~ modelID)
@@ -281,11 +280,11 @@ head(corr)
 
 # take a look at corr and select models (make sure correlation does not have top model)
 mods_for_ensemble_hgb_ferr_predict_ferr <- c(dt_tune_results[version==vers & model=="EN", "modelID"][[1]][1],  # top EN model
-                                            as.character(corr[1, Var1]),  # row 1 col 1
-                                            as.character(corr[1, Var2]),
-                                            as.character(corr[2, Var1]),
-                                            as.character(corr[3, Var1]),
-                                            dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1])
+                                             as.character(corr[1, Var1]),  # row 1 col 1
+                                             as.character(corr[1, Var2]),
+                                             as.character(corr[2, Var1]),
+                                             as.character(corr[3, Var1]),
+                                             dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1])
 mods_for_ensemble_hgb_ferr_predict_ferr
 
 ## Version: Hemoglobin only ----
@@ -298,12 +297,12 @@ head(corr)
 
 # take a look at corr and select models (make sure correlation does not have top model)
 mods_for_ensemble_hgb_only_predict_ferr <- c(dt_tune_results[version==vers & model=="RF", "modelID"][[1]][1],  # top RF model
-                                            as.character(corr[1, Var1]),
-                                            as.character(corr[1, Var2]),
-                                            as.character(corr[2, Var1]),
-                                            as.character(corr[3, Var1]),
-                                            as.character(corr[4, Var2]))
-                                            
+                                             as.character(corr[1, Var1]),
+                                             as.character(corr[1, Var2]),
+                                             as.character(corr[2, Var1]),
+                                             as.character(corr[3, Var1]),
+                                             as.character(corr[4, Var2]))
+
 mods_for_ensemble_hgb_only_predict_ferr
 
 # COMPILE LIST OF MODELS FOR ENSEMBLE ----

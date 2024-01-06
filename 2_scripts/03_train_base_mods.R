@@ -40,7 +40,7 @@ if (length(args)<5) {
   stop("All five arguments must be entered into command line separated by spaces (see preamble of 03_train_base_models.R)", call.=FALSE)
 }
 
-mod_name <- args[1]  # input from command line: "RF", "EN", "XGB"
+mod_name <- args[1]  # input from command line: "RF", "EN", "XGB", "CB" (catboost)
 predict_biomarkers <- args[2]  # input from command line: "predict_hgb", "predict_ferr"
 train_biomarkers <- args[3]  # input from command line: "data_hgb_only", "data_hgb_ferr"
 start <- as.integer(args[4])  # input from command line
@@ -59,6 +59,8 @@ if (mod_name == "RF") {
   param_sets <- fread("./3_intermediate/hyperparameters/en_hyperparameters.csv")
 } else if (mod_name == "XGB") {
   param_sets <- fread("./3_intermediate/hyperparameters/xgb_hyperparameters.csv")
+} else if (mod_name == "CB") {
+  param_sets <- fread("./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 }
 
 # !!! JENNIFER: THIS WILL NEED UPDATING BASED ON HOW YOU ARE DOING THE DATA 
@@ -106,7 +108,7 @@ fname_results <- paste0("./3_intermediate/tune_results/base_mod_tune_",
                         "_",
                         "params",start,"_to_",end,
                         ifelse(outer_fold==0, ".csv", 
-                               pasteo("_outer_fold_",outer_fold,".csv")))
+                               paste0("_outer_fold_",outer_fold,".csv")))
 
 # Train models ----
 tune_subset(mod_name=mod_name, 
@@ -118,4 +120,3 @@ tune_subset(mod_name=mod_name,
             )
 #Train subset will output a csv file with the RMSPE for each hyperparameter
 #. set for each fold of (nested or regular) cross validation. 
-
