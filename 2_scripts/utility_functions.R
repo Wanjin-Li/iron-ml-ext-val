@@ -262,7 +262,7 @@ mod_eval <- function(train_data,
     xgb.fit = xgb.train(params = params,
                         data = xgb.train,
                         nrounds = 10000,
-                        nthread = 36,
+                        nthread = 36, # specify the number of threads to use
                         early_stopping_rounds = 10,
                         watchlist = list(val1 = xgb.train, val2 = xgb.test),
                         verbose = 0,
