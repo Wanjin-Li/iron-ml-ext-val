@@ -6,6 +6,7 @@ library(rsample)
 library(caret)
 library(dplyr)
 library(data.table)
+library(catboost)
 
 ## DATA MUNGING --------
 
@@ -32,7 +33,7 @@ gen_features_list <- function(dt, version){
   
   return(list("OH"=dt.OH,
               "factor"=dt.md))
-
+  
 }
 
 # ## DATA PROCESSING ----
@@ -67,7 +68,7 @@ tune_subset <- function(
     fname_results,
     start, end #rows of param_sets from which to draw hyperparameter sets
     ) {
-  
+
   #Run model assessment
   # Construct table for storing results
   #. ROWS: hyperparam sets
@@ -97,22 +98,20 @@ tune_subset <- function(
   
   for (row_num in start:end){
     # get set of hyperparameters
-    params <- as.list(unlist(param_sets[row,]))  
-
+    params <- as.list(unlist(param_sets[row_num,]))  
+    
     # Run 3 rpt 5 fold CV for this hyperparam set with cv_convig and append
     dt.results.rmspe <- rbind(dt.results.rmspe,
-                              cv_config(dt_split, params, row_num, mod_name)$rmspe)
+                              cv_config(dt_split, params, row_num, mod_name))
     
     # print status
-    print(paste0("Completed hyperparam set ", row+idx_start-1,". ", Sys.time()))
+    print(paste0("Completed hyperparam set ", row_num,". ", Sys.time()))
   }
-  
+
   #calculate mean RMSPE for each model configuration (row)
   dt.results.rmspe[ , rmspe_mean := rowMeans(.SD), .SDcols = colnames(rmspe_res_cols)]
-  
-  #append columns with model configuration info
-  
-  # Save csv file to disk
+
+    # Save csv file to disk
   fwrite(dt.results.rmspe, fname_results)
 }
 
@@ -130,44 +129,47 @@ cv_config <- function(dt_split, params, row_num, mod_name){
   
   # # get data for this model configuration
   rmspe_outcome <- list(model=mod_name, hyperparam_idx = row_num)
+
+  rsplit_obj <- dt_split$splits
   
-  for (fold in 1:5){
-    for (rpt in 1:3){
-      
-      # get data for this fold/repeat
-      # validate_date is data in fold
-      # train_data is all other data
-      train_data <- analysis(dt_split)   #JENNIFER THESE MAY NOT BE RIGHT ANYMORE
-      validate_data <- assessment(dt_split)
-      
-      #Create to store predictions for the selected fold/repeat (for RMSPE calcs)
-      dt_preds_for_fold <- data.table("prediction"= numeric(),
-                                        "fu_outcome"= numeric())
-      
-      #train model & save predictions in table
-      tryCatch({
-        dt_preds_for_fold <- rbind(
-          dt_preds_for_fold,
-          mod_eval(train_data,
-                   validate_data, 
-                   params, 
-                   mod_name)
-        )
-      }, error = function(error_condition){
-        cat("Could not fit model on rpt ", rpt, " fold ", fold)
-      })
-      
-      #calculate RMSPE
-      EPSILON <-  1e-10  # prevent division by zero
-      rmspe <- (sqrt(mean(((dt_inner_fold_preds$fu_outcome - dt_inner_fold_preds$prediction) / 
-                             (dt_inner_fold_preds$fu_outcome + EPSILON))^2))) * 100
-      
-      rmspe_outcome[paste0("rmspe_rpt",
-                           rpt,
-                           "_fold",
-                           fold)] <- rmspe
-      
-    }
+  for (i in seq_along(rsplit_obj)){
+    # get data for this fold/repeat
+    # validate_date is data in fold
+    # train_data is all other data
+    
+    train_data <- analysis(rsplit_obj[[i]])
+    validate_data <- assessment(rsplit_obj[[i]])
+    idxs_info <- rsplit_obj[[i]]
+    rpt <- as.numeric(gsub("[^0-9]", "", idxs_info$id[1]))
+    fold <- as.numeric(gsub("[^0-9]", "", idxs_info$id[2]))
+    
+    #Create to store predictions for the selected fold/repeat (for RMSPE calcs)
+    dt_preds_for_fold <- data.table("prediction"= numeric(),
+                                    "fu_outcome"= numeric())
+    
+    #train model & save predictions in table
+    tryCatch({
+      dt_preds_for_fold <- rbind(
+        dt_preds_for_fold,
+        mod_eval(train_data,
+                 validate_data, 
+                 params, 
+                 mod_name)
+      )
+    }, error = function(error_condition){
+      cat("Could not fit model on rpt ", rpt, " fold ", fold)
+    })
+    
+    #calculate RMSPE
+    EPSILON <-  1e-10  # prevent division by zero
+    rmspe <- (sqrt(mean(((dt_preds_for_fold$fu_outcome - dt_preds_for_fold$prediction) / 
+                           (dt_preds_for_fold$fu_outcome + EPSILON))^2))) * 100
+    
+    rmspe_outcome[paste0("rmspe_rpt",
+                         rpt,
+                         "_fold",
+                         fold)] <- rmspe
+    
   }
   
   return(rmspe_outcome)
@@ -195,7 +197,7 @@ mod_eval <- function(train_data,
   # change response variable to "fu_outcome" for easier coding below
   lookup <- c(fu_outcome = "fu_hgb", fu_outcome = "fu_log_ferritin")
   train_data <- train_data %>% rename(any_of(lookup))
-  test_data <- test_data %>% rename(any_of(lookup))
+  validate_data <- validate_data %>% rename(any_of(lookup))
   
   ncol_rsplit <- ncol(train_data)  
   
@@ -209,18 +211,18 @@ mod_eval <- function(train_data,
                            replace = params$replace)
     
     # generate predictions
-    preds = as.data.table(predict(rf_fit, test_data))
+    preds = as.data.table(predict(rf_fit, validate_data))
     
     if(return_train_pred==TRUE){  # for ensemble training only
       pred_train <- as.data.table(predict(rf_fit, train_data))
       preds<-rbind(cbind(Set="Train", pred_train), cbind(Set="Test", preds))
       colnames(preds) <- c("Set", "prediction")
       fu_outcome = rbind(train_data[,"fu_outcome"],  # fu_hgb, fu_log_ferritin
-                         test_data[,"fu_outcome"])   # fu_hgb, fu_log_ferritin
+                         validate_data[,"fu_outcome"])   # fu_hgb, fu_log_ferritin
       
     } else {
       colnames(preds) <- paste0("prediction")
-      fu_outcome = test_data[,"fu_outcome"]   # fu_hgb, fu_log_ferritin
+      fu_outcome = validate_data[,"fu_outcome"]   # fu_hgb, fu_log_ferritin
     }
     
     #ELASTIC NET (NO INTERACTIONS)
@@ -232,7 +234,7 @@ mod_eval <- function(train_data,
                   family="gaussian")  # gaussian for regression
     
     # generate predictions
-    X_test <- data.matrix(test_data[ , 1:(ncol_rsplit-1)])  # remove last column (outcome)
+    X_test <- data.matrix(validate_data[ , 1:(ncol_rsplit-1)])  # remove last column (outcome)
     preds = as.data.table(predict(fit, newx = X_test))
     
     if(return_train_pred==TRUE){  # for ensemble training
@@ -241,11 +243,11 @@ mod_eval <- function(train_data,
       preds<-rbind(cbind(Set="Train", pred_train), cbind(Set="Test", preds))
       colnames(preds) <- c("Set", "prediction")
       fu_outcome = unlist(rbind(train_data[,"fu_outcome"],  # fu_hgb, fu_log_ferritin
-                                test_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
+                                validate_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
       
     } else{
       colnames(preds) <- paste0("prediction")
-      fu_outcome = unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
+      fu_outcome = unlist(validate_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
     }
     
     # XGB GRADIENT BOOSTED MACHINE
@@ -253,13 +255,14 @@ mod_eval <- function(train_data,
     # Extract train and test sets in xgb's special format
     xgb.train = xgb.DMatrix(data = as.matrix(train_data[,-"fu_outcome"]),  # fu_hgb, fu_log_ferritin
                             label = as.matrix(train_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
-    xgb.test = xgb.DMatrix(data = as.matrix(test_data[,-"fu_outcome"]),  # fu_hgb, fu_log_ferritin
-                           label = as.matrix(test_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
+    xgb.test = xgb.DMatrix(data = as.matrix(validate_data[,-"fu_outcome"]),  # fu_hgb, fu_log_ferritin
+                           label = as.matrix(validate_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
     
     # Fit model
     xgb.fit = xgb.train(params = params,
                         data = xgb.train,
                         nrounds = 10000,
+                        nthread = 36,
                         early_stopping_rounds = 10,
                         watchlist = list(val1 = xgb.train, val2 = xgb.test),
                         verbose = 0,
@@ -275,16 +278,44 @@ mod_eval <- function(train_data,
       preds<-rbind(cbind(Set="Train", pred_train), cbind(Set="Test", preds))
       colnames(preds) <- c("Set", "prediction")
       fu_outcome = unlist(rbind(train_data[,"fu_outcome"],  # fu_hgb, fu_log_ferritin
-                                test_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
+                                validate_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
       
     } else{
       colnames(preds) <- paste0("prediction")
-      fu_outcome = unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
+      fu_outcome = unlist(validate_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
     }
   } else if (mod_name == "CB"){
-  # CatBoost TO BE ADDED 
-  }
-  
+    # https://catboost.ai/en/docs/concepts/r-reference_catboost-train
+    x_train <- train_data[, -"fu_outcome"]
+    y_train <- train_data$fu_outcome
+    
+    x_test <- validate_data[, -"fu_outcome"]
+    y_test <- validate_data$fu_outcome
+    
+    # Load pools for training and testing sets
+    train_pool <- catboost.load_pool(data = x_train, label = y_train)
+    test_pool <- catboost.load_pool(data = x_test, label = y_test)
+    
+    # convert char to numeric for certain hyperparams
+    params[["depth"]] <- as.numeric(params[["depth"]])
+    params[["learning_rate"]] <- as.numeric(params[["learning_rate"]])
+    params[["iterations"]] <- as.numeric(params[["iterations"]])
+    params[["l2_leaf_reg"]] <- as.numeric(params[["l2_leaf_reg"]])
+    params[["rsm"]] <- as.numeric(params[["rsm"]])
+    
+    # Train
+    cb_fit <- catboost.train(train_pool, params = params)
+    
+    # Predict
+    preds = as.data.table(catboost.predict(cb_fit,
+                                           test_pool,
+                                           prediction_type = 'RawFormulaVal'))
+    
+    # Save predictions
+    colnames(preds) <- paste0("prediction")
+    fu_outcome = validate_data$fu_outcome  
+    }
+
   results <- cbind(preds,fu_outcome)
   
   return(results)
@@ -328,7 +359,7 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
   outcome_base_mods <- list()
   EPSILON <- 1e-10  # for RMSPE to prevent division by 0
 
-  # JENNIFER- this must be fixed, should not be using outer folds!!! ---------
+    # JENNIFER- this must be fixed, should not be using outer folds!!! ---------
   
   for (row_outer in 1:nrow(base_model_specs[[1]]$dt_split)){  # 1:15
     # Table to store predictions across each outer fold
@@ -458,7 +489,7 @@ auc_calcs <- function(dt.scores){
   dt.scores[, is_Z1 := ifelse(fu_outcome=="Z1",1,0)]
   dt.scores[, is_Z2 := ifelse(fu_outcome=="Z2",1,0)]
   dt.scores[, is_Z3 := ifelse(fu_outcome=="Z3",1,0)]
-
+  
   AUCs <- dt.scores[ , list(Overall = multiclass.roc(fu_outcome~Z0+Z1+Z2+Z3)$auc,
                             Z0 = roc(is_Z0~Z0)$auc,
                             Z1 = roc(is_Z1~Z1)$auc,
@@ -469,24 +500,24 @@ auc_calcs <- function(dt.scores){
 }
 
 # Generate feature list, run  ensemble, return AUCs
-gen_metric_row<-function(base_mods, test_data, idx_rpt, idx_fld, feat_name){
+gen_metric_row<-function(base_mods, validate_data, idx_rpt, idx_fld, feat_name){
   #Generate risk scores on test data - no perturbations
-  risk_scores <- risk_scores_ensemble(features_list=gen_features_list(test_data), base_mods=base_mods)  # 3 cols: donor_idx, prediction, fu_outcome
+  risk_scores <- risk_scores_ensemble(features_list=gen_features_list(validate_data), base_mods=base_mods)  # 3 cols: donor_idx, prediction, fu_outcome
   
   print(risk_scores)
   stop()
-  # risk_scores<-cbind(risk_scores, "fu_outcome"=test_data$fu_outcome)
+  # risk_scores<-cbind(risk_scores, "fu_outcome"=validate_data$fu_outcome)
   # 
   # risk_scores[ , prediction := paste0("Z",max.col(risk_scores[,2:5])-1)]
-
-
+  
+  
   #Calc metrics and append to table
   
   EPSILON <-  1e-10  # prevent division by zero
   rmspe <- (sqrt(mean(((risk_scores$fu_outcome - risk_scores$prediction) / (risk_scores$fu_outcome + EPSILON))**2))) * 100
   
   output = c(idx_rpt, idx_fld, feat_name, rmspe)
-
+  
   return(t(output))
 }
 
@@ -554,7 +585,7 @@ ensemble_feature_importance <- function(base_model_specs,
       }
       
       #Extract test set for model assessment partition
-      test_data <- data.table(
+      validate_data <- data.table(
         assessment(
           filter(rsplit_unformatted,
                  id==paste0("Repeat",idx_rpt) &
@@ -562,12 +593,12 @@ ensemble_feature_importance <- function(base_model_specs,
       
       #append baseline metrics to table
       dt_feat_metrics <- rbind(dt_feat_metrics,
-                               gen_metric_row(base_mods, test_data, idx_rpt, idx_fld, "baseline"),
+                               gen_metric_row(base_mods, validate_data, idx_rpt, idx_fld, "baseline"),
                                use.names=FALSE)
       
       for (idx_feat in 1:(ncol(dt)-1)){ # loop over features to perturb and calculate performance
         #shuffle selected feature
-        dt_temp <- cbind(test_data)[,feat_names[idx_feat] := sample(get(feat_names[idx_feat]),replace=FALSE)]
+        dt_temp <- cbind(validate_data)[,feat_names[idx_feat] := sample(get(feat_names[idx_feat]),replace=FALSE)]
         #Run model and calculate risk scores
         dt_feat_metrics <- rbind(dt_feat_metrics,
                                  gen_metric_row(base_mods, dt_temp, idx_rpt, idx_fld, feat_names[idx_feat]),
@@ -616,8 +647,8 @@ weight_score <- function(preds, weights){
   preds[, Q1 := weights[2]*Z1/( weights[1]*Z0+ weights[2]*Z1+ weights[3]*Z2+ weights[4]*Z3)]
   preds[, Q2 := weights[3]*Z2/( weights[1]*Z0+ weights[2]*Z1+ weights[3]*Z2+ weights[4]*Z3)]
   preds[, Q3 := weights[4]*Z3/( weights[1]*Z0+ weights[2]*Z1+ weights[3]*Z2+ weights[4]*Z3)]
-
-
+  
+  
   return(preds[, paste0("Q",0:3)])
 }
 
@@ -654,7 +685,7 @@ risk_scores_rf <- function(features,
   preds = as.data.table(predict(model, features, type="prob"))
   #Uncalibrated predictions
   colnames(preds) <- paste0("Z", 0:3)
-
+  
   if(is.na(weights)){
     return(preds)
   } else{
@@ -671,7 +702,7 @@ risk_scores_ensemble <- function(features_list,  # 2 versions: OH=one hot, facto
                                  incl_base_preds=FALSE){
   
   dt_base_preds <- data.table("base_model" = character(), "prediction"=numeric(), "fu_outcome"= numeric())
-
+  
   # Gen predictions for each base model
   for (base_mod_idx in 1:length(base_mods)){
     #extract model name
@@ -717,8 +748,8 @@ risk_scores_ensemble <- function(features_list,  # 2 versions: OH=one hot, facto
   #model average
   dt_ensemb_pred <- dt_base_preds[, list("prediction"=mean(prediction),
                                          "fu_outcome"=mean(fu_outcome)),
-                                         by=donor_idx]
-
+                                  by=donor_idx]
+  
   if(incl_base_preds==TRUE){
     if(is.na(weights)){
       return(list("ensemble"=dt_ensemb_pred,
@@ -734,10 +765,5 @@ risk_scores_ensemble <- function(features_list,  # 2 versions: OH=one hot, facto
       return(weight_score(dt_ensemb_pred, weights))
     }
   }
-
+  
 }
-
-
-
-
-
