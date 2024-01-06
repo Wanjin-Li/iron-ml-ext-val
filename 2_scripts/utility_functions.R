@@ -309,7 +309,8 @@ mod_eval <- function(train_data,
     # Predict
     preds = as.data.table(catboost.predict(cb_fit,
                                            test_pool,
-                                           prediction_type = 'RawFormulaVal'))
+                                           prediction_type = 'RawFormulaVal',
+                                           thread_count=36)) # specify the number of threads to use
     
     # Save predictions
     colnames(preds) <- paste0("prediction")
