@@ -75,13 +75,7 @@ tune_subset <- function(
   #. COLS: one to store RMSPE for each fold/rpt
   
   rmspe_res_cols <-  matrix(ncol = 15, nrow = 0)
-  #mae_res_cols <-  matrix(ncol = 15, nrow = 0)
-  
-  # colnames(rmse_res_cols) <- paste0("rmse_repeat",
-  #                                   formatC(ceiling(1:15/5)),
-  #                                   "_fold",
-  #                                   formatC((1:15-1)%%5 + 1))
-  
+
   #names of rmspe columns for data.table
   colnames(rmspe_res_cols) <- paste0("rmspe_rpt",
                                      rep(1:3, each = 5),
@@ -114,10 +108,6 @@ tune_subset <- function(
     # Save csv file to disk
   fwrite(dt.results.rmspe, fname_results)
 }
-
-
-
-
 
 
 
@@ -184,8 +174,9 @@ cv_config <- function(dt_split, params, row_num, mod_name){
 #  for a given train data and assess data,
 #. model algorithm/name, and hyperparameter set,
 #. run the model and return RMSPE.
+
 #  When used for ensembles, set return_train_pred to
-#  true so those can be accessed to tune the ensemble
+#  true so those can be accessed to tune the ensemble !!!!
 
 mod_eval <- function(train_data, 
                      validate_data, 
@@ -228,7 +219,7 @@ mod_eval <- function(train_data,
     #ELASTIC NET (NO INTERACTIONS)
   } else if (mod_name == "EN"){
     fit <- glmnet(x = as(data.matrix(train_data[ , 1:(ncol_rsplit-1)]), "dgCMatrix"),
-                  y = train_data$fu_outcome,  # fu_hgb, fu_ferritin
+                  y = train_data$fu_outcome,  # fu_hgb, fu_log_ferritin
                   lambda = params$lambda,
                   alpha = params$alpha,
                   family="gaussian")  # gaussian for regression
@@ -297,12 +288,22 @@ mod_eval <- function(train_data,
     test_pool <- catboost.load_pool(data = x_test, label = y_test)
     
     # convert char to numeric for certain hyperparams
-    params[["depth"]] <- as.numeric(params[["depth"]])
-    params[["learning_rate"]] <- as.numeric(params[["learning_rate"]])
-    params[["iterations"]] <- as.numeric(params[["iterations"]])
-    params[["l2_leaf_reg"]] <- as.numeric(params[["l2_leaf_reg"]])
-    params[["rsm"]] <- as.numeric(params[["rsm"]])
-    
+    if (!is.numeric(params[["depth"]])){
+      params[["depth"]] <- as.numeric(params[["depth"]])
+    }
+    if (!is.numeric(params[["learning_rate"]])){
+      params[["learning_rate"]] <- as.numeric(params[["learning_rate"]])
+    }
+    if (!is.numeric(params[["iterations"]])){
+      params[["iterations"]] <- as.numeric(params[["iterations"]])
+    }
+    if (!is.numeric(params[["l2_leaf_reg"]])){
+      params[["l2_leaf_reg"]] <- as.numeric(params[["l2_leaf_reg"]])
+    }
+    if (!is.numeric(params[["rsm"]])){
+      params[["rsm"]] <- as.numeric(params[["rsm"]])
+    }
+
     # Train
     cb_fit <- catboost.train(train_pool, params = params)
     
@@ -310,15 +311,26 @@ mod_eval <- function(train_data,
     preds = as.data.table(catboost.predict(cb_fit,
                                            test_pool,
                                            prediction_type = 'RawFormulaVal',
-                                           thread_count=36)) # specify the number of threads to use
-    
-    # Save predictions
-    colnames(preds) <- paste0("prediction")
-    fu_outcome = validate_data$fu_outcome  
+                                           thread_count=24,
+                                           verbose = FALSE)) # specify the number of threads to use
+   
+    if(return_train_pred==TRUE){  # for ensemble training
+      pred_train <- as.data.table(catboost.predict(cb_fit,
+                                                   train_pool,
+                                                   prediction_type = 'RawFormulaVal',
+                                                   thread_count=24,
+                                                   verbose = FALSE))
+      preds<-rbind(cbind(Set="Train", pred_train), cbind(Set="Test", preds))
+      colnames(preds) <- c("Set", "prediction")
+      fu_outcome = unlist(rbind(train_data[,"fu_outcome"],  # fu_hgb, fu_log_ferritin
+                                validate_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
+      
+    } else {
+      colnames(preds) <- paste0("prediction")
+      fu_outcome = validate_data$fu_outcome
     }
-
+  }
   results <- cbind(preds,fu_outcome)
-  
   return(results)
 }
 
@@ -329,7 +341,7 @@ mod_eval <- function(train_data,
 #Construct model specs as lists
 #RF uses dt_split_factor
 #GBM uses dt_split_xgb
-#EN (no interaction) uses dt_split_xgb
+#EN (no interaction) uses dt_split_xgb (should be dt_split_factor?)
 
 # JENNIFER: need to fix dt_split so it will do 5-fold 3-rpt CV, nothing about outer folds!----
 
@@ -346,6 +358,9 @@ mod_spec_as_list <- function(mod_id, biomarkers){
   } else if (mod_name=="EN"){
     dt_split <- get(paste0("rsplit_factors_", biomarkers))
     hyperparams <- as.list(en_param_sets[hyperparam_idx, ])
+  } else if (mod_name=="CB"){
+    dt_split <- get(paste0("rsplit_factors_", biomarkers))
+    hyperparams <- as.list(cb_param_sets[hyperparam_idx, ])
   } 
   return(list(mod_name=mod_name,
               dt_split=dt_split,
@@ -353,89 +368,85 @@ mod_spec_as_list <- function(mod_id, biomarkers){
 }
 
 ##ENSEMBLE MODEL ASSESSMENT
-run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensemble/", ensemble_config="NA", version="hgb_ferr_predict_ferr",
+run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensemble/updates/", ensemble_config="NA", version="NA",
                                 ensemble_type="average"){
   
   outcome<-list()
   outcome_base_mods <- list()
   EPSILON <- 1e-10  # for RMSPE to prevent division by 0
-
+  
     # JENNIFER- this must be fixed, should not be using outer folds!!! ---------
   
-  for (row_outer in 1:nrow(base_model_specs[[1]]$dt_split)){  # 1:15
+  for (row_indx in 1:nrow(base_model_specs[[1]]$dt_split)){ # the number of splits = 5-fold cv 3 rpts = 15
     # Table to store predictions across each outer fold
     # Table to store predictions across each inner fold
-    dt_inner_fold_preds <- data.table(
-      "donor_idx"=numeric(),
-      "prediction"= numeric(),
-      "fu_outcome"= numeric())
+    
     dt_inner_fold_preds_base <- data.table(
       "base_model" = character(),
       "prediction"= numeric(),
       "fu_outcome"= numeric())
-    for (row_inner in 1:nrow(base_model_specs[[1]]$dt_split$inner_resamples[[1]])){  # 1:5
-      #Table to store predictions across each inner fold
-      dt_single_fold_preds <- data.table(
-        "base_model" = character(),
-        "Set"=character(),
-        "prediction"= numeric(),
-        "fu_outcome"= numeric()
+    
+    dt_single_fold_preds <- data.table(
+      "base_model" = character(),
+      "Set"=character(),
+      "prediction"= numeric(),
+      "fu_outcome"= numeric()
+    )
+    
+    for (base_model_idx in 1:length(base_model_specs)){  # the number of base models selected into ensemble (i.e. 6)
+      # Generate predictions on single inner fold
+      # Keep raw predictions from both train and test data within the fold
+      # Save result from training data
+      rsplit_obj <- base_model_specs[[base_model_idx]]$dt_split$splits[[row_indx]] # this need to be changed to row number index
+      train_data <- analysis(rsplit_obj)
+      validate_data <- assessment(rsplit_obj)
+      
+      params <- base_model_specs[[base_model_idx]]$hyperparams
+      mod_name <- base_model_specs[[base_model_idx]]$mod_name
+      
+      # print(paste0("# of rows: ", nrow(dt_single_fold_preds)))
+      
+      dt_single_fold_preds <- rbind(
+        dt_single_fold_preds,
+        cbind("base_model" = names(base_model_specs)[base_model_idx],
+              mod_eval(train_data, validate_data,
+                       params,
+                       mod_name,
+                       return_train_pred=TRUE))
       )
-      # Train base models
       
-      for (base_model_idx in 1:length(base_model_specs)){  # number of base models
-        # Generate predictions on single inner fold
-        # Keep raw predictions from both train and test data within the fold
-        # Save result from training data
-        dt_single_fold_preds <- rbind(
-          dt_single_fold_preds,
-          cbind("base_model" = names(base_model_specs)[base_model_idx],
-                mod_eval(rsplit_obj = base_model_specs[[base_model_idx]]$dt_split$inner_resamples[[row_outer]]$splits[[row_inner]],
-                         params = base_model_specs[[base_model_idx]]$hyperparams,
-                         mod_name = base_model_specs[[base_model_idx]]$mod_name,
-                         return_train_pred=TRUE))
-        )
-      }
-      dt_single_fold_preds[, donor_idx := rep(1:(nrow(dt_single_fold_preds)/length(base_model_specs)), length(base_model_specs))]
-      # train_res_in_fold <- dt_single_fold_preds[Set=="Train", list("train_res"=sum(prediction)/.N), by=base_model]
-      
-      # dt_single_fold_preds<-dt_single_fold_preds[train_res_in_fold, on="base_model"]
-      dt_inner_fold_preds_base<-rbind(dt_inner_fold_preds_base,
-                                      dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
-      
-      # model average: for each datapoint, get the average over all model predictions. e.g., if 6 models, then averaging over 6 predictions for each datapoint
-      dt_inner_fold_preds<-rbind(dt_inner_fold_preds,
-                                 dt_single_fold_preds[Set=="Test", list(
-                                   "prediction"=mean(prediction),  
-                                   "fu_outcome"=mean(fu_outcome)),
-                                   by=donor_idx])
     }
-    rmspe <- (sqrt(mean(((dt_inner_fold_preds$fu_outcome - dt_inner_fold_preds$prediction) / (dt_inner_fold_preds$fu_outcome + EPSILON))**2))) * 100
     
-    outcome[paste0("rmspe_repeat",
-                   formatC(ceiling(row_outer/5)),
+    # extract only test values
+    # will contain predicted values of all 6 selected models for one repeat
+    dt_inner_fold_preds_base<-rbind(dt_inner_fold_preds_base,
+                                    dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
+    
+    # the rmspe of one repeat
+    rmspe <- (sqrt(mean(((dt_inner_fold_preds_base$fu_outcome - dt_inner_fold_preds_base$prediction) / (dt_inner_fold_preds_base$fu_outcome + EPSILON))**2))) * 100
+    
+    outcome[paste0("rmspe_rpt",
+                   formatC(ceiling(row_indx/5)),
                    "_fold",
-                   formatC((row_outer-1)%%5 + 1))] <- rmspe
+                   formatC((row_indx-1)%%5 + 1))] <- rmspe
     
-    print(paste0("outer fold complete: ",row_outer))
+    print(paste0("base model fold complete: ", row_indx))
     
-    outcome_base_mods[[paste0("rmspe_repeat",
-                              formatC(ceiling(row_outer/5)),
+    outcome_base_mods[[paste0("rmspe_rpt",
+                              formatC(ceiling(row_indx/5)),
                               "_fold",
-                              formatC((row_outer-1)%%5 + 1))]] <- dt_inner_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
+                              formatC((row_indx-1)%%5 + 1))]] <- dt_inner_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
+    
   }
   
   dt.results <- as.data.table(outcome)
-  dt.results[ , res_mean := rowMeans(.SD), .SDcols =  # get mean over all folds (average across all cols in the row)
-                paste0("rmspe_repeat",
+  dt.results[ , rmspe_mean := rowMeans(.SD), .SDcols =  # get mean over all folds (average across all cols in the row)
+                paste0("rmspe_rpt",
                        formatC(ceiling(1:15/5)),
                        "_fold",
                        formatC((1:15-1)%%5 + 1))]
-  
-  dt.results_basemods <- as.data.table(outcome_base_mods)
-  
+
   fwrite(dt.results, paste0(path, paste0("ensemble_assess_results_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
-  fwrite(dt.results_basemods, paste0(path, paste0("ensemble_basemods_assess_results_", ensemble_config, "_",version,"_", ensemble_type,".csv")))
 }
 
 
