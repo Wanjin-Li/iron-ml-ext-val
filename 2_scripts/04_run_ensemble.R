@@ -14,7 +14,7 @@ library(purrr)
 theme_set(theme_bw())
 source("./2_scripts/utility_functions.R")
 
-intermediate_directory <- './3_intermediate/ensemble'
+intermediate_directory <- './3_intermediate/ensemble/updates'
 if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory)
 }
@@ -28,24 +28,56 @@ if (length(args)==0) {
 i <- as.integer(args[1])  # input from bash script
 
 ## Predict hgb ----
-base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_ferr_predict_hgb.RDS")
-base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_only_predict_hgb.RDS")
+### data hgb only ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_only_predict_hgb.RDS")
 
-## Predict ferritin ----
-base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_ferr_predict_ferr.RDS")
-base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_only_predict_ferr.RDS")
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_only_predict_hgb.RDS")
 
-list_of_specs <- list(base_mod_spec_hgb_ferr_predict_hgb, 
-                      base_mod_spec_hgb_only_predict_hgb,
-                      base_mod_spec_hgb_ferr_predict_ferr,
-                      base_mod_spec_hgb_only_predict_ferr)
+### data hgb ferr ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_ferr_predict_hgb.RDS")
 
-list_of_configs <- c("5XGB1RF", "5XGB1RF", "5EN1RF", "6RF")
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_ferr_predict_hgb.RDS")
 
-list_of_versions <- c("hgb_ferr_predict_hgb", 
-                      "hgb_only_predict_hgb",
-                      "hgb_ferr_predict_ferr",
-                      "hgb_only_predict_ferr")
+
+## Predict ferr ----
+### data hgb only ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_only_predict_ferr.RDS")
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_only_predict_ferr.RDS")
+
+### data hgb ferr ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_ferr_predict_ferr.RDS")
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_ferr_predict_ferr.RDS")
+
+
+
+list_of_specs <- list(em1_base_mod_spec_hgb_only_predict_hgb,
+                      em1_base_mod_spec_hgb_ferr_predict_hgb,
+                      em1_base_mod_spec_hgb_only_predict_ferr,
+                      em1_base_mod_spec_hgb_ferr_predict_ferr,
+                      em2_base_mod_spec_hgb_only_predict_hgb,
+                      em2_base_mod_spec_hgb_ferr_predict_hgb,
+                      em2_base_mod_spec_hgb_only_predict_ferr,
+                      em2_base_mod_spec_hgb_ferr_predict_ferr)
+
+list_of_configs <- rep(c("ensemble1", "ensemble2"), each = 4)
+
+
+list_of_versions <- rep(c("hgb_only_predict_hgb",
+                      "hgb_ferr_predict_hgb",
+                      "hgb_only_predict_ferr",
+                      "hgb_ferr_predict_ferr"), 2)
+  
+  
 
 print(list_of_specs[[i]])
 print(list_of_configs[i])
@@ -54,8 +86,10 @@ print(list_of_versions[i])
 
 run_ensemble_assess(base_model_specs = list_of_specs[[i]], 
                     ensemble_config = list_of_configs[i],
-                    version=list_of_versions[i])
+                    version=list_of_versions[i],
+                    ensemble_type="average")
 
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/04_run_ensemble.R 1 # 1, 2, 3, 4, 5, 6, 7, 8
 
 
 

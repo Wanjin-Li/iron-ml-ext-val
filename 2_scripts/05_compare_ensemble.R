@@ -5,6 +5,387 @@ source('https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/f
 theme_set(theme_bw())
 
 # Compare ensemble to individual top models ----
+tune_results_all_predict_hgb <-fread("./3_intermediate/tune_results/base_model/rmspe_tune_results_all_predict_hgb.csv")
+tune_results_all_predict_ferr <-fread("./3_intermediate/tune_results/base_model/rmspe_tune_results_all_predict_ferr.csv")
+
+
+## Predict hgb ----
+### data hgb only ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_only_predict_hgb.RDS")
+em1_results_hgb_only_predict_hgb <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble1_hgb_only_predict_hgb_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble1_hgb_only_predict_hgb <- rbind(
+  tune_results_all_predict_hgb[modelID %in% names(em1_base_mod_spec_hgb_only_predict_hgb) &  # get names of base models
+                     version=="Hemoglobin only", .SD,
+                   .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin only",
+        modelID="Ensemble1",
+        em1_results_hgb_only_predict_hgb))
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_only_predict_hgb.RDS")
+em2_results_hgb_only_predict_hgb <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble2_hgb_only_predict_hgb_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble2_hgb_only_predict_hgb <- rbind(
+  tune_results_all_predict_hgb[modelID %in% names(em2_base_mod_spec_hgb_only_predict_hgb) &  # get names of base models
+                                 version=="Hemoglobin only", .SD,
+                               .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin only",
+        modelID="Ensemble2",
+        em2_results_hgb_only_predict_hgb))
+
+### data hgb ferr ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_ferr_predict_hgb.RDS")
+em1_results_hgb_ferr_predict_hgb <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble1_hgb_ferr_predict_hgb_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble1_hgb_ferr_predict_hgb <- rbind(
+  tune_results_all_predict_hgb[modelID %in% names(em1_base_mod_spec_hgb_ferr_predict_hgb) &  # get names of base models
+                                 version=="Hemoglobin and Ferritin", .SD,
+                               .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin and Ferritin",
+        modelID="Ensemble1",
+        em1_results_hgb_ferr_predict_hgb))
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_ferr_predict_hgb.RDS")
+em2_results_hgb_ferr_predict_hgb <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble2_hgb_ferr_predict_hgb_average.csv")
+
+
+# Merge base model results with ensemble results
+top_mods_ensemble2_hgb_ferr_predict_hgb <- rbind(
+  tune_results_all_predict_hgb[modelID %in% names(em2_base_mod_spec_hgb_ferr_predict_hgb) &  # get names of base models
+                                 version=="Hemoglobin and Ferritin", .SD,
+                               .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin and Ferritin",
+        modelID="Ensemble2",
+        em2_results_hgb_ferr_predict_hgb))
+
+
+## Predict ferr ----
+### data hgb only ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_only_predict_ferr.RDS")
+em1_results_hgb_only_predict_ferr <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble1_hgb_only_predict_ferr_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble1_hgb_only_predict_ferr <- rbind(
+  tune_results_all_predict_ferr[modelID %in% names(em1_base_mod_spec_hgb_only_predict_ferr) &  # get names of base models
+                                 version=="Hemoglobin only", .SD,
+                               .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin only",
+        modelID="Ensemble1",
+        em1_results_hgb_only_predict_ferr))
+
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_only_predict_ferr.RDS")
+em2_results_hgb_only_predict_ferr <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble2_hgb_only_predict_ferr_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble2_hgb_only_predict_ferr <- rbind(
+  tune_results_all_predict_ferr[modelID %in% names(em2_base_mod_spec_hgb_only_predict_ferr) &  # get names of base models
+                                 version=="Hemoglobin only", .SD,
+                               .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin only",
+        modelID="Ensemble2",
+        em2_results_hgb_only_predict_ferr))
+
+### data hgb ferr ----
+#### ensemble 1 ----
+em1_base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em1_base_mod_spec_hgb_ferr_predict_ferr.RDS")
+em1_results_hgb_ferr_predict_ferr <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble1_hgb_ferr_predict_ferr_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble1_hgb_ferr_predict_ferr <- rbind(
+  tune_results_all_predict_ferr[modelID %in% names(em1_base_mod_spec_hgb_ferr_predict_ferr) &  # get names of base models
+                                  version=="Hemoglobin and Ferritin", .SD,
+                                .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin and Ferritin",
+        modelID="Ensemble1",
+        em1_results_hgb_ferr_predict_ferr))
+
+
+#### ensemble 2 ----
+em2_base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/updates/em2_base_mod_spec_hgb_ferr_predict_ferr.RDS")
+em2_results_hgb_ferr_predict_ferr <- fread("./3_intermediate/ensemble/updates/ensemble_assess_results_ensemble2_hgb_ferr_predict_ferr_average.csv")
+
+# Merge base model results with ensemble results
+top_mods_ensemble2_hgb_ferr_predict_ferr <- rbind(
+  tune_results_all_predict_ferr[modelID %in% names(em2_base_mod_spec_hgb_ferr_predict_ferr) &  # get names of base models
+                                  version=="Hemoglobin and Ferritin", .SD,
+                                .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
+  
+  cbind(version="Hemoglobin and Ferritin",
+        modelID="Ensemble2",
+        em2_results_hgb_ferr_predict_ferr))
+
+
+
+
+
+
+
+# Plotting top models ----
+
+## Predict hgb ----
+### data hgb only ----
+#### ensemble 1 ----
+top_mods_ensemble1 <- top_mods_ensemble1_hgb_only_predict_hgb
+top_mods_ensemble1[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble1_plt <- melt(top_mods_ensemble1[,.SD,.SDcols=!c("rmspe_mean")],
+                            id.vars=c("version","modelID","top"))
+
+#### ensemble 2 ----
+
+top_mods_ensemble2 <- top_mods_ensemble2_hgb_only_predict_hgb
+top_mods_ensemble2[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble2_plt <- melt(top_mods_ensemble2[,.SD,.SDcols=!c("rmspe_mean")],
+                              id.vars=c("version","modelID","top"))
+# plot
+min_range_y <- min(min(top_mods_ensemble1_plt$value), min(top_mods_ensemble2_plt$value))
+max_range_y <- max(max(top_mods_ensemble1_plt$value), max(top_mods_ensemble2_plt$value))
+
+p1 <- ggplot(top_mods_ensemble1_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+p2 <- ggplot(top_mods_ensemble2_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+# combine plots
+ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 1, nrow = 2) 
+
+
+
+### data hgb ferr ----
+#### ensemble 1 ----
+top_mods_ensemble1 <- top_mods_ensemble1_hgb_ferr_predict_hgb
+top_mods_ensemble1[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble1_plt <- melt(top_mods_ensemble1[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+
+#### ensemble 2 ----
+
+top_mods_ensemble2 <- top_mods_ensemble2_hgb_ferr_predict_hgb
+top_mods_ensemble2[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble2_plt <- melt(top_mods_ensemble2[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+# plot
+min_range_y <- min(min(top_mods_ensemble1_plt$value), min(top_mods_ensemble2_plt$value))
+max_range_y <- max(max(top_mods_ensemble1_plt$value), max(top_mods_ensemble2_plt$value))
+
+p1 <- ggplot(top_mods_ensemble1_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+p2 <- ggplot(top_mods_ensemble2_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+# combine plots
+ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 1, nrow = 2) 
+
+## Predict ferr ----
+### data hgb only ----
+#### ensemble 1 ----
+top_mods_ensemble1 <- top_mods_ensemble1_hgb_only_predict_ferr
+top_mods_ensemble1[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble1_plt <- melt(top_mods_ensemble1[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+
+#### ensemble 2 ----
+
+top_mods_ensemble2 <- top_mods_ensemble2_hgb_only_predict_ferr
+top_mods_ensemble2[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble2_plt <- melt(top_mods_ensemble2[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+# plot
+min_range_y <- min(min(top_mods_ensemble1_plt$value), min(top_mods_ensemble2_plt$value))
+max_range_y <- max(max(top_mods_ensemble1_plt$value), max(top_mods_ensemble2_plt$value))
+
+p1 <- ggplot(top_mods_ensemble1_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+p2 <- ggplot(top_mods_ensemble2_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+# combine plots
+ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 1, nrow = 2) 
+
+### data hgb ferr ----
+#### ensemble 1 ----
+top_mods_ensemble1 <- top_mods_ensemble1_hgb_ferr_predict_ferr
+top_mods_ensemble1[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble1_plt <- melt(top_mods_ensemble1[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+
+#### ensemble 2 ----
+
+top_mods_ensemble2 <- top_mods_ensemble2_hgb_ferr_predict_ferr
+top_mods_ensemble2[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
+
+top_mods_ensemble2_plt <- melt(top_mods_ensemble2[,.SD,.SDcols=!c("rmspe_mean")],
+                               id.vars=c("version","modelID","top"))
+# plot
+min_range_y <- min(min(top_mods_ensemble1_plt$value), min(top_mods_ensemble2_plt$value))
+max_range_y <- max(max(top_mods_ensemble1_plt$value), max(top_mods_ensemble2_plt$value))
+
+p1 <- ggplot(top_mods_ensemble1_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+p2 <- ggplot(top_mods_ensemble2_plt, aes(x = modelID, y = value, fill=top,)) +
+  facet_wrap(vars(version), nrow=2, scales="free_y") +coord_flip()+
+  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
+             aes(color=top))+
+  stat_summary(fun = mean, geom = "point",
+               position = position_nudge(x = .2, y = 0)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_nudge(x = .2, y = 0))+
+  xlab("")+
+  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", 
+                     labels = scales::percent_format(scale=1),
+                     limits = c(min_range_y, max_range_y))+
+  theme(legend.position = "None")
+
+
+# combine plots
+ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 1, nrow = 2) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# CHEN-YANG code -----
 
 ## Predict hgb ----
 base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_ferr_predict_hgb.RDS")
@@ -74,7 +455,7 @@ top_mods_ensemble_predict_ferr <- rbind(
 top_mods_ensemble <- top_mods_ensemble_predict_hgb
 top_mods_ensemble[, top:=ifelse(res_mean==min(res_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
 
-top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("res_mean")],
+top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("rmspe_mean")],
                             id.vars=c("version","modelID","top"))
 
 p1 <- ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
