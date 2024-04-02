@@ -381,7 +381,7 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
     # Table to store predictions across each outer fold
     # Table to store predictions across each inner fold
     
-    dt_inner_fold_preds_base <- data.table(
+    dt_single_fold_preds_base <- data.table(
       "base_model" = character(),
       "prediction"= numeric(),
       "fu_outcome"= numeric())
@@ -419,11 +419,21 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
     
     # extract only test values
     # will contain predicted values of all 6 selected models for one repeat
-    dt_inner_fold_preds_base<-rbind(dt_inner_fold_preds_base,
+    dt_single_fold_preds_base<-rbind(dt_single_fold_preds_base,
                                     dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
+    dt_single_fold_preds_base[, donor_idx := 1:.N, by = base_model]
+
+    print(dt_single_fold_preds_base)
+    
+    # model average prediction
+    dt_ensemble_pred <- dt_single_fold_preds_base[, list("prediction" = mean(prediction),
+                                                         "fu_outcome" = mean(fu_outcome)),
+                                                  by = donor_idx] 
+    
+    print(dt_ensemble_pred)
     
     # the rmspe of one repeat
-    rmspe <- (sqrt(mean(((dt_inner_fold_preds_base$fu_outcome - dt_inner_fold_preds_base$prediction) / (dt_inner_fold_preds_base$fu_outcome + EPSILON))**2))) * 100
+    rmspe <- (sqrt(mean(((dt_ensemble_pred$fu_outcome - dt_ensemble_pred$prediction) / (dt_ensemble_pred$fu_outcome + EPSILON))**2))) * 100
     
     outcome[paste0("rmspe_rpt",
                    formatC(ceiling(row_indx/5)),
@@ -435,7 +445,7 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
     outcome_base_mods[[paste0("rmspe_rpt",
                               formatC(ceiling(row_indx/5)),
                               "_fold",
-                              formatC((row_indx-1)%%5 + 1))]] <- dt_inner_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
+                              formatC((row_indx-1)%%5 + 1))]] <- dt_single_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
     
   }
   
