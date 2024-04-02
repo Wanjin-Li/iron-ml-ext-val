@@ -1,4 +1,4 @@
-################### External validation on Sanbs and vitalant 
+################### External validation on SANBS and Vitalant 
 
 library(ggplot2)
 library(tidyverse)
@@ -8,13 +8,73 @@ theme_set(theme_bw())
 
 source("./2_scripts/utility_functions.R")
 
-intermediate_directory <- './3_intermediate/external_validation'  # directory to store external validation results
+intermediate_directory <- './3_intermediate/external_validation/updates'  # directory to store external validation results
 if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory)
 }
 
+# (Temporary) validation on RISE full dataset ----
+# Used for 10_plot_res only and for QLS seminar; likely overfitting !!!!
+
+intermediate_directory <- './3_intermediate/external_validation/updates/rise'  # directory to store external validation results for sanbs
+if (!dir.exists(intermediate_directory)) {
+  dir.create(intermediate_directory)
+}
+
+## load rise data ----
+dat_paths <- c("./3_intermediate/private/hgb_ferr_rise.csv",
+               "./3_intermediate/private/hgb_only_rise.csv")
+
+for (dat_path in dat_paths) {
+  if (dat_path == "./3_intermediate/private/hgb_ferr_rise.csv") {
+    dt.md.hgb <- fread("./3_intermediate/model_dev_data/main_model/pred_hgb/mdset_factors_hgb_ferr.csv")  # factors
+    dt.OH.hgb <- fread("./3_intermediate/model_dev_data/main_model/pred_hgb/mdset_OH_hgb_ferr.csv")  # One hot 
+    
+    dt.md.ferr <- fread("./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_factors_hgb_ferr.csv")
+    dt.OH.ferr <- fread("./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_OH_hgb_ferr.csv")
+    
+    dt.md.hgb <- mutate_if(dt.md.hgb, is.character, as.factor)
+    dt.md.ferr <- mutate_if(dt.md.ferr, is.character, as.factor)
+    
+    hf_pred_h_factor <- dt.md.hgb[, -"RandID"]
+    hf_pred_h_oh <- dt.OH.hgb[, -"RandID"]
+    hf_pred_f_factor <- dt.md.ferr[, -"RandID"]
+    hf_pred_f_oh <- dt.OH.ferr[, -"RandID"]
+    
+  } else if (dat_path == "./3_intermediate/private/hgb_only_rise.csv") {
+    dt.md.hgb <- fread("./3_intermediate/model_dev_data/main_model/pred_hgb/mdset_factors_hgb_only.csv")
+    dt.OH.hgb <- fread("./3_intermediate/model_dev_data/main_model/pred_hgb/mdset_OH_hgb_only.csv")
+    
+    dt.md.ferr <- fread("./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_factors_hgb_only.csv")
+    dt.OH.ferr <- fread("./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_OH_hgb_only.csv")
+    
+    dt.md.hgb <- mutate_if(dt.md.hgb, is.character, as.factor)
+    dt.md.ferr <- mutate_if(dt.md.ferr, is.character, as.factor)
+    
+    h_pred_h_factor <- dt.md.hgb[, -"RandID"]
+    h_pred_h_oh <- dt.OH.hgb[, -"RandID"]
+    h_pred_f_factor <- dt.md.ferr[, -"RandID"]
+    h_pred_f_oh <- dt.OH.ferr[, -"RandID"]
+  }
+}
+
+# Ensemble
+load_model_and_predict(version = "hgb_ferr_predict_hgb",
+                       res_dir='./3_intermediate/external_validation/updates/rise/')
+load_model_and_predict(version = "hgb_only_predict_hgb",
+                       res_dir='./3_intermediate/external_validation/updates/rise/')
+# single models
+load_model_and_predict(version = "hgb_ferr_predict_ferr",
+                       res_dir='./3_intermediate/external_validation/updates/rise/')
+load_model_and_predict(version = "hgb_only_predict_ferr",
+                       res_dir='./3_intermediate/external_validation/updates/rise/')
+
+
+# load model and predict on SANBS ----
+# External validation of trained models on SANBS data
+
 # SANBS External Validation ----
-intermediate_directory <- './3_intermediate/external_validation/sanbs'  # directory to store external validation results for sanbs
+intermediate_directory <- './3_intermediate/external_validation/updates/sanbs'  # directory to store external validation results for sanbs
 if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory)
 }
@@ -78,18 +138,34 @@ validate_single_model <- function(test_data, fitted_model, mod_name){
     xgb.test = xgb.DMatrix(data = as.matrix(test_data[,-"fu_outcome"]),  # fu_hgb, fu_log_ferritin
                            label = as.matrix(test_data[,"fu_outcome"]))  # fu_hgb, fu_log_ferritin
     preds <- as.data.table(predict(fitted_model, xgb.test, reshape = T))
+    
+  } else if (mod_name == "CB"){ # CB CATBOOST
+    x_test <- test_data[, -"fu_outcome"]
+    y_test <- test_data$fu_outcome
+    
+    test_pool <- catboost.load_pool(data = x_test, label = y_test)
+    
+    # Predict
+    preds = as.data.table(catboost.predict(fitted_model,
+                                           test_pool,
+                                           prediction_type = 'RawFormulaVal',
+                                           thread_count=24,
+                                           verbose = FALSE)) # specify the number of threads to use
+    
+    
   }
   colnames(preds) <- paste0("prediction")
   fu_outcome <- unlist(test_data[, "fu_outcome"])  # fu_hgb, fu_log_ferritin
-  results <- cbind(preds,fu_outcome)
+  results <- cbind(preds, fu_outcome)
   return(results)
 }
+
 
 
 # Uses helper function validate_single_model to get external validation results
 load_model_and_predict <- function(version, res_dir) {
   version_pattern <- paste0(version, "*")
-  model_paths <- list.files(path="./3_intermediate/trained_models", pattern=version_pattern, full.names = TRUE) 
+  model_paths <- list.files(path="./3_intermediate/trained_models/updates", pattern=version_pattern, full.names = TRUE) 
   
   for (path in model_paths) {  # for each model in ensemble
     base_model_name <- gsub("^.*_", "", path)  # gets the last element after splitting by "_"
@@ -128,12 +204,13 @@ load_model_and_predict <- function(version, res_dir) {
     # Validate base model
     results <- validate_single_model(test_data, fitted_model, mod_name)
     # path <- "./3_intermediate/trained_models/hgb_ferr_predict_hgb_5XGB1RF_RF.208.rds"
-    file_name <- str_split(path, "[/]")[[1]][4]  # "hgb_ferr_predict_hgb_5XGB1RF_RF.208.rds"
+    file_name <- str_split(path, "[/]")[[1]][5]  # "hgb_ferr_predict_hgb_5XGB1RF_RF.208.rds"
     file_name <- paste0(gsub(".rds", "", file_name), ".csv")  # remove ".rds" and add ".csv" -> # "hgb_ferr_predict_hgb_5XGB1RF_RF.208.csv"
-    
-    fwrite(results, paste0(res_dir, file_name)) # "./3_intermediate/external_validation/sanbs/hgb_ferr_predict_hgb_5XGB1RF_RF.208.csv"
+    print(file_name)
+    fwrite(results, paste0(res_dir, file_name)) # "./3_intermediate/external_validation/updates/sanbs/hgb_ferr_predict_hgb_5XGB1RF_RF.208.csv"
   }
 }
+
 
 
 # load model and predict on SANBS ----
@@ -141,14 +218,14 @@ load_model_and_predict <- function(version, res_dir) {
 
 # Ensemble
 load_model_and_predict(version = "hgb_ferr_predict_hgb",
-                       res_dir='./3_intermediate/external_validation/sanbs/')
+                       res_dir='./3_intermediate/external_validation/updates/sanbs/')
 load_model_and_predict(version = "hgb_only_predict_hgb",
-                       res_dir='./3_intermediate/external_validation/sanbs/')
+                       res_dir='./3_intermediate/external_validation/updates/sanbs/')
 # single models
 load_model_and_predict(version = "hgb_ferr_predict_ferr",
-                       res_dir='./3_intermediate/external_validation/sanbs/')
+                       res_dir='./3_intermediate/external_validation/updates/sanbs/')
 load_model_and_predict(version = "hgb_only_predict_ferr",
-                       res_dir='./3_intermediate/external_validation/sanbs/')
+                       res_dir='./3_intermediate/external_validation/updates/sanbs/')
 
 
 
@@ -160,14 +237,15 @@ load_model_and_predict(version = "hgb_only_predict_ferr",
 
 
 # Vitalant External Validation ----
-intermediate_directory <- './3_intermediate/external_validation/vitalant'  # directory to store external validation results for sanbs
+intermediate_directory <- './3_intermediate/external_validation/updates/vitalant'  # directory to store external validation results for sanbs
 if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory)
 }
 
 ## load Vitalant data ----
-dat_paths <- c("./3_intermediate/private/hgb_ferr_vitalant.csv",
-               "./3_intermediate/private/hgb_only_vitalant.csv")
+# use updated preprocessed Vitalant data!!!!
+dat_paths <- c("./3_intermediate/private/vitalant_updates/hgb_ferr_vitalant.csv",
+               "./3_intermediate/private/vitalant_updates/hgb_only_vitalant.csv")
 
 for (dat_path in dat_paths) {
   dt.md <- fread(dat_path) 
@@ -191,12 +269,12 @@ for (dat_path in dat_paths) {
   dt.OH.ferr <- data.table(model.matrix(fu_log_ferritin ~ ., data=dt.md.ferr))
   dt.OH.ferr <- cbind(dt.OH.ferr, "fu_log_ferritin" = dt.md$fu_log_ferr)
   
-  if (dat_path == "./3_intermediate/private/hgb_ferr_vitalant.csv") {
+  if (dat_path == "./3_intermediate/private/vitalant_updates/hgb_ferr_vitalant.csv") {
     hf_pred_h_factor <- dt.md.hgb
     hf_pred_h_oh <- dt.OH.hgb
     hf_pred_f_factor <- dt.md.ferr
     hf_pred_f_oh <- dt.OH.ferr
-  } else if (dat_path == "./3_intermediate/private/hgb_only_vitalant.csv") {
+  } else if (dat_path == "./3_intermediate/private/vitalant_updates/hgb_only_vitalant.csv") {
     h_pred_h_factor <- dt.md.hgb
     h_pred_h_oh <- dt.OH.hgb
     h_pred_f_factor <- dt.md.ferr
@@ -209,14 +287,14 @@ for (dat_path in dat_paths) {
 
 # Ensemble
 load_model_and_predict(version = "hgb_ferr_predict_hgb",
-                       res_dir='./3_intermediate/external_validation/vitalant/')
+                       res_dir='./3_intermediate/external_validation/updates/vitalant/')
 load_model_and_predict(version = "hgb_only_predict_hgb",
-                       res_dir='./3_intermediate/external_validation/vitalant/')
+                       res_dir='./3_intermediate/external_validation/updates/vitalant/')
 # single models
 load_model_and_predict(version = "hgb_ferr_predict_ferr",
-                       res_dir='./3_intermediate/external_validation/vitalant/')
+                       res_dir='./3_intermediate/external_validation/updates/vitalant/')
 load_model_and_predict(version = "hgb_only_predict_ferr",
-                       res_dir='./3_intermediate/external_validation/vitalant/')
+                       res_dir='./3_intermediate/external_validation/updates/vitalant/')
 
 
 
