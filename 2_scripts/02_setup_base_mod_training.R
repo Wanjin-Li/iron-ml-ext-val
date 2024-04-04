@@ -46,8 +46,8 @@ if (!dir.exists(intermediate_directory)) {
 
 # Read data for model development (md) dataset
 
-dat_paths <- c("./3_intermediate/private/hgb_ferr_rise.csv",
-               "./3_intermediate/private/hgb_only_rise.csv")
+# dat_paths <- c("./3_intermediate/private/hgb_ferr_rise.csv",
+#                "./3_intermediate/private/hgb_only_rise.csv")
 
 ## PREDICTION USING HGB ONLY DATASET  ------
 hgb_training_data <- fread("./3_intermediate/private/hgb_only_rise.csv")
@@ -88,7 +88,7 @@ dt.OH.hgb <- cbind(dt.OH.hgb,
                    "fu_hgb" = dt.md.hgb$fu_hgb)
 
 dt.OH.ferr <- copy(dt.md.ferr)
-dt.OH.ferr <- data.table(model.matrix(fu_log_ferritin ~., data = dt.OH.ferr[, !column_to_exclude, with = FALSE]))
+dt.OH.ferr <- data.table(model.matrix(fu_log_ferritin ~., data = dt.md.ferr[, !column_to_exclude, with = FALSE]))
 dt.OH.ferr <- cbind(dt.OH.ferr, 
                     "RandID" = dt.md.ferr$RandID,
                     "fu_log_ferritin" = dt.md.ferr$fu_log_ferritin)
@@ -155,20 +155,15 @@ rsplit_factor_ferr <- replace_rsplit_data(rsplit_res_factor, dt.factor.ferr)
 
 # analysis(rsplit_factor_hgb$splits[[1]])
 # assessment(rsplit_factor_hgb$splits[[1]])
-# 
 
 ### save dataframes -----
 # save one hot encoding dataframes
-saveRDS(rsplit_OH_hgb, 
-              "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_OH_hgb_only.rds")
-saveRDS(rsplit_OH_ferr, 
-              "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_OH_hgb_only.rds")
+saveRDS(rsplit_OH_hgb, "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_OH_hgb_only.rds")
+saveRDS(rsplit_OH_ferr, "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_OH_hgb_only.rds")
 
 # save character as factor dataframes
-saveRDS(rsplit_factor_hgb, 
-        "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_factors_hgb_only.rds")
-saveRDS(rsplit_factor_ferr, 
-        "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_factors_hgb_only.rds")
+saveRDS(rsplit_factor_hgb, "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_factors_hgb_only.rds")
+saveRDS(rsplit_factor_ferr, "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_factors_hgb_only.rds")
 
 
 # Save the full training sets as CSV
@@ -217,7 +212,7 @@ dt2.OH.hgb <- cbind(dt2.OH.hgb,
                    "fu_hgb" = dt2.md.hgb$fu_hgb)
 
 dt2.OH.ferr <- copy(dt2.md.ferr)
-dt2.OH.ferr <- data.table(model.matrix(fu_log_ferritin ~., data = dt2.OH.ferr[, !column_to_exclude, with = FALSE]))
+dt2.OH.ferr <- data.table(model.matrix(fu_log_ferritin ~., data = dt2.md.ferr[, !column_to_exclude, with = FALSE]))
 dt2.OH.ferr <- cbind(dt2.OH.ferr, 
                     "RandID" = dt2.md.ferr$RandID,
                     "fu_log_ferritin" = dt2.md.ferr$fu_log_ferritin)
@@ -267,10 +262,6 @@ fwrite(dt2.factor.hgb, "./3_intermediate/model_dev_data/main_model/pred_hgb/mdse
 fwrite(dt2.factor.ferr, "./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_factors_hgb_ferr.csv")
 fwrite(dt2.OH.hgb, "./3_intermediate/model_dev_data/main_model/pred_hgb/mdset_OH_hgb_ferr.csv")
 fwrite(dt2.OH.ferr, "./3_intermediate/model_dev_data/main_model/pred_ferr/mdset_OH_hgb_ferr.csv")
-
-
-
-
 
 
 # GENERATE NESTED CV OBJECTS -----------
@@ -330,15 +321,42 @@ en_param_sets <- rbind(
 )
 fwrite(en_param_sets, "./3_intermediate/hyperparameters/en_hyperparameters.csv")
 
-# CATBOOST -> 4000 hyperparams
+# CATBOOST -> 1260 hyperparams (final)
+
+# 1st attempt: initially 3200 hyperparams; took ~3 weeks to complete for only one problem set; max depth=16 took the longest time (~2-3 hrs) but didn't perform better
+# need to downsize the number of hyperparams
+# cb_test_sets <- expand.grid(
+#   loss_function = 'RMSE',
+#   logging_level = 'Silent', # suppress iteration results
+#   depth = seq(2, 16, 2), # Similar to max_depth in XGBoost; 16 at max for catboost; initial training  used depth = seq(2, 16, 2)
+#   learning_rate = c(0.01, 0.05, 0.1, 0.2, 0.3), # Similar to eta in XGBoost
+#   iterations = seq(200, 1000, 200), # Number of trees
+#   l2_leaf_reg = c(1, 3, 6, 9), # Similar to lambda in XGBoost
+#   rsm = c(0.5, 0.7, 0.9, 1)) # Similar to subsample in XGBoost
+
+# 2nd attempt: remove the max depth = 16 -> 2800 hyperparams
+# then downsized to 2800 hyperparams
+# cb_test_sets <- expand.grid(
+#   loss_function = 'RMSE',
+#   logging_level = 'Silent', # suppress iteration results
+#   depth = seq(2, 14, 2), # Similar to max_depth in XGBoost; 16 at max for catboost; initial training  used depth = seq(2, 16, 2)
+#   learning_rate = c(0.01, 0.05, 0.1, 0.2, 0.3), # Similar to eta in XGBoost
+#   iterations = seq(200, 1000, 200), # Number of trees
+#   l2_leaf_reg = c(1, 3, 6, 9), # Similar to lambda in XGBoost
+#   rsm = c(0.5, 0.7, 0.9, 1)) # Similar to subsample in XGBoost
+
+
+# 3rd attempt (final): 1260 hyperparams 
+# changed to learning_rate = c(0.01, 0.05, 0.1); learning rate of 0.2 and 0.3 did not seem to perform well for all prediction tasks using either dataset which aligns with xgb results
+# changed to rsm = c(0.5, 0.7, 1)
 cb_param_sets <- expand.grid(
     loss_function = 'RMSE',
-  # logging_level = 'Silent',
-  depth = seq(2, 20, 2), # Similar to max_depth in XGBoost
-  learning_rate = c(0.01, 0.05, 0.1, 0.2, 0.3), # Similar to eta in XGBoost
+  logging_level = 'Silent', # suppress iteration results
+  depth = seq(2, 14, 2), # Similar to max_depth in XGBoost; 16 at max for catboost; initial training  used depth = seq(2, 16, 2)
+  learning_rate = c(0.01, 0.05, 0.1), # Similar to eta in XGBoost
   iterations = seq(200, 1000, 200), # Number of trees
   l2_leaf_reg = c(1, 3, 6, 9), # Similar to lambda in XGBoost
-  rsm = c(0.5, 0.7, 0.9, 1)) # Similar to subsample in XGBoost
+  rsm = c(0.5, 0.7, 1)) # Similar to subsample in XGBoost
 
 fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 
@@ -353,45 +371,85 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 #. with arguments to specify which model configurations
 #. to develop
 
-## EN -----
+### EN -----
 # 1051 hyperparam sets - done
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_hgb" "data_hgb_only" 1 1051 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_ferr" "data_hgb_only" 1 1051 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 0
 
-## RF -----
+### RF -----
 # 448 hyperparam sets
-# Done
+# can do parallel computing
+
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_only" 1 448 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_only" 1 448 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_ferr" 1 448 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_ferr" 1 448 0
 
-## XGB -----
-
+### XGB -----
 # 4800 hyperparam sets
-# split the jobs by subsetting hyperparam sets; use 36 cores only; parallel computing is slower
+# use 36 cores only; 
+# run one job at a time; parallel computing is slower
 
-# Done
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_only" 1 4800 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_only" 1 4800 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_ferr" 1 4800 0
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_ferr" 1 4800 0
 
-## CB -----
-
-# Running
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "CB" "predict_hgb" "data_hgb_only" 1 2 0
+### CB -----
+# 8 hyperparas for one group of training; each group takes ~1.5-2 hrs; can run ~5 jobs at the same time
 
 
-
-
-
-
-# RUNNING NESTED CV VERSION OF MODEL SELECTION PROCEDURE
+# RUNNING NESTED CV VERSION OF MODEL SELECTION PROCEDURE ----
 #. This is identical to the original model selection procedure except
 #. repeated 3 times, one in each of the outer CV folds with 2/3 of the data.
+
+### EN -----
+# 1051 hyperparam sets 
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 1
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 2
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 3
+
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 1
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 2
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 3
+
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 1
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 2
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 3
+
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 1
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 2
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 3
+
+
+
+### RF -----
+# 448 hyperparam sets
+# can do parallel computing
+
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_only" 1 448 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_only" 1 448 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_ferr" 1 448 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_ferr" 1 448 0
+
+### XGB -----
+# 4800 hyperparam sets
+# use 36 cores only; 
+# run one job at a time; parallel computing is slower
+
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_only" 1 4800 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_only" 1 4800 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_ferr" 1 4800 0
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_ferr" 1 4800 0
+
+### CB -----
+# 8 hyperparas for one group of training; each group takes ~1.5-2 hrs; can run ~5 jobs at the same time
+
+
+
+
 
 
 
@@ -412,7 +470,7 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 
 
 
-## CHEN-YANG CODE FROM HERE DOWN, TO BE EDITED/INTEGRATED INTO ABOVE SCAFFOLDING
+## CHEN-YANG CODE FROM HERE DOWN, TO BE EDITED/INTEGRATED INTO ABOVE SCAFFOLDING ----
 
 # Save cv split function ----
 save_cv_split <- function(df, file_path) {
