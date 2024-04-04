@@ -11,7 +11,7 @@ library(runner)  # for sum_run() function
 
 # Deriving variables ----
 
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del0.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del0.csv")
 str(df)
 
 # first create variables that can be used
@@ -45,14 +45,14 @@ df$time_to_fu <- as.integer(difftime(as.POSIXct(df$next.val), as.POSIXct(df$Visi
 df <- df[, -c("next.val")]  # drop unneeded col
 
 # save intermediate df
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del1.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del1.csv")
 
 
 
 ## rbc_loss_last_12_months ----
 ## rbc_loss_last_24_months ----
 
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del1.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del1.csv")
 # df <- fread("./3_intermediate/private/vitalant_intermediate_to_del1.csv", nrows=10000)  # testing 10000 rows
 
 
@@ -68,12 +68,12 @@ df <- df %>%
                                            k = 365*2,  # last 24 months
                                            idx = as.Date(Visit_Date, format="%Y-%m-%d")))
 
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del2.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del2.csv")
 
 
 ##  days_since_last_rbc_loss ----
 
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del2.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del2.csv")
 
 str(df)
 
@@ -87,12 +87,12 @@ success$days_since_last_rbc_loss <- as.integer(difftime(as.POSIXct(success$Visit
 # in the final dataframe, we subset to only whole blood donors
 df <- merge(x=df, y=success[, c("DONATION_NUMBER", "days_since_last_rbc_loss")], by=c("DONATION_NUMBER"), all.x=TRUE)  # merge column days_since_last_rbc_loss back in
 
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del3.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del3.csv")
 
 
 
 ## days_since_last_drbc_loss ----
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del3.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del3.csv")
 setkey(df, DonorID, Visit_Date)  # sorts the dataframe
 
 
@@ -143,7 +143,7 @@ df$days_since_last_rbc_loss[is.na(df$days_since_last_rbc_loss)] <- 3650  # repla
 df$days_since_last_drbc_loss[is.na(df$days_since_last_drbc_loss)] <- 3650  # replace remaining NA with 10 years
 
 # save intermediate df
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del4.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del4.csv")
 
 # x <- df[, c("DONATION_NUMBER", "DonorID", "Visit_Date")]
 # nrow(x)
@@ -160,7 +160,7 @@ fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del4.cs
 ## index log ferritin ----
 
 # load data back in
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del4.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del4.csv")
 
 setkey(df, DonorID, Visit_Date)  # sorts the dataframe
 
@@ -182,13 +182,13 @@ df[, `:=`(fu_hgb = c(tail(index_hgb, -1), NA)), by=DonorID]
 df[, `:=`(fu_log_ferritin = c(tail(index_log_ferritin, -1), NA)), by=DonorID]
 
 # save intermediate df
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del5.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del5.csv")
 
 
 
 # Modify other variables ----
 # load data back in
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del5.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del5.csv")
 
 
 ## Blood type ----
@@ -233,11 +233,11 @@ df <- data.frame(df)
 df$index_hgb <- as.numeric(df$index_hgb)
 df$fu_hgb <- as.numeric(df$fu_hgb)
 
-fwrite(df, "./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del6.csv")
+fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del6.csv")
 
 
 # Subset to columns for analysis ----
-df <- fread("./3_intermediate/private/2023-11-08/vitalant_intermediate_to_del6.csv")
+df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del6.csv")
 
 df <- df[, c("DonorID",
              "Visit_Date",
@@ -258,7 +258,7 @@ df <- df[, c("DonorID",
 str(df)
 
 # for supplementary table
-print(dfSummary(df), file="./3_intermediate/data_summaries/2023-11-08/vitalant_data_summary_all.html")
+print(dfSummary(df), file="./3_intermediate/data_summaries/vitalant_updates/vitalant_data_summary_all.html")
 
 # Create 2 datasets ----
 # Dataset 1: index donation (hgb, ferritin present) ---> predict follow up (hgb, ferritin separately)
@@ -287,16 +287,16 @@ str(d.hgb_ferr)
 
 
 # CREATE DATA SUMMARY ----
-print(dfSummary(d.hgb_ferr), file="./3_intermediate/data_summaries/2023-11-08/vitalant_data_summary_labeled_hgb_ferr.html")
-print(dfSummary(d.hgb_only), file="./3_intermediate/data_summaries/2023-11-08/vitalant_data_summary_labeled_hgb_only.html")
+print(dfSummary(d.hgb_ferr), file="./3_intermediate/data_summaries/vitalant_updates/vitalant_data_summary_labeled_hgb_ferr.html")
+print(dfSummary(d.hgb_only), file="./3_intermediate/data_summaries/vitalant_updates/vitalant_data_summary_labeled_hgb_only.html")
 
 intermediate_directory <- './3_intermediate/private'
 if (!dir.exists(intermediate_directory)) {
   dir.create(intermediate_directory)
 }
 
-fwrite(d.hgb_ferr, "./3_intermediate/private/2023-11-08/hgb_ferr_vitalant.csv")  # old name: ml_training_data_hgb_ferr.csv
-fwrite(d.hgb_only, "./3_intermediate/private/2023-11-08/hgb_only_vitalant.csv")  # old name: ml_training_data_hgb_only.csv
+fwrite(d.hgb_ferr, "./3_intermediate/private/vitalant_updates/hgb_ferr_vitalant.csv")  # old name: ml_training_data_hgb_ferr.csv
+fwrite(d.hgb_only, "./3_intermediate/private/vitalant_updates/hgb_only_vitalant.csv")  # old name: ml_training_data_hgb_only.csv
 
 
 
