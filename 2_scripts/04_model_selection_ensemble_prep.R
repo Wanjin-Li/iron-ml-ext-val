@@ -247,13 +247,14 @@ plot_model_hyperparams <- function(dt_tune_results, predict_biomarkers, metric) 
                        labels = percent_format(scale = 1))+  # For integers, use: labels =waiver())+#, limits=c(.1,1))+
     theme(legend.position = "bottom",
           axis.ticks.y = element_blank())+
-    geom_hline(data=top_mods, aes(color=version, yintercept = top_mean_rmspe))
+    geom_hline(data=top_mods, aes(color=version, yintercept = top_mean_rmspe)) +
+    guides(fill = guide_legend(nrow = 2))
 
     # rmse_tuning_no_ensemble_predict_hgb.png
-  fname_svg <- paste0("./4_output/updates/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".svg")
-  fname_png <- paste0("./4_output/updates/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".png")
-  ggsave(fname_svg, width = 6, height = 5.5, unit = "in")
-  ggsave(fname_png, width = 6, height = 5.5, unit = "in")
+  # fname_svg <- paste0("./4_output/updates/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".svg")
+  # fname_png <- paste0("./4_output/updates/figs/", metric, "_tuning_no_ensemble_", predict_biomarkers, ".png")
+  # ggsave(fname_svg, width = 6, height = 5.5, unit = "in")
+  # ggsave(fname_png, width = 6, height = 5.5, unit = "in")
   
 }
 
@@ -262,8 +263,12 @@ rmspe_all_predict_hgb <- fread("./3_intermediate/tune_results/base_model/rmspe_t
 rmspe_all_predict_ferr <- fread("./3_intermediate/tune_results/base_model/rmspe_tune_results_all_predict_ferr.csv")
 
 # call plot function
-plot_model_hyperparams(dt_tune_results=rmspe_all_predict_hgb, predict_biomarkers="predict_hgb", metric="RMSPE") 
-plot_model_hyperparams(dt_tune_results=rmspe_all_predict_ferr, predict_biomarkers="predict_ferr", metric="RMSPE") 
+p1_hgb <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_hgb, predict_biomarkers="predict_hgb", metric="RMSPE") 
+p1_ferr <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_ferr, predict_biomarkers="predict_ferr", metric="RMSPE") 
+
+# combine plots
+p1_combined <- ggpubr::ggarrange(p1_hgb, p1_ferr, labels = c("A", "B"), ncol = 2, nrow = 1, common.legend = TRUE, legend = "bottom") 
+ggsave("./4_output/updates/figs/combined_RMSPE_tuning_no_ensemble.png", plot = p1_combined, width = 10, height = 8, unit = "in")
 
 # predict hgb - min rmspe by version
 min(rmspe_all_predict_hgb[rmspe_all_predict_hgb$version == "Hemoglobin only"]$rmspe_mean)
@@ -317,7 +322,7 @@ for (version in list_version){
     # Select subset of models not statistically different from top model; 
     dt_mods_nonsignf <- data.frame(matrix(nrow=0, ncol = ncol(dt_tune_results_temp))) 
     
-    # Calculate pairwise correlation between each base model config in set
+    # compare rmspe of the top models with other models and find the ones whose rmspes are not statistically different from the top 
     for (i in 2:nrow(dt_tune_results_temp)){
       test_mod_rmspe <- unlist(dt_tune_results_temp[, ..cols_rmspe][i])
       nonparam_t_test <- wilcox.test(top_mod_rmspe, test_mod_rmspe, exact = FALSE)
@@ -605,7 +610,6 @@ saveRDS(base_mod_spec_hgb_ferr_pred_ferr, "./3_intermediate/ensemble/updates/em2
 # FINAL MODEL SELECTION -----
 
 # Add ensemble 1 and 2 to the tune_result_all table 
-# question: add ensemble 1 and 2 to the table containing all tuning results from the four algorithms?
 
 
 
