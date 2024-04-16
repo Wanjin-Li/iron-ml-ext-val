@@ -9,7 +9,7 @@ replace_rsplit_data <- function(rsplit_output, dt) {
   splits_list <- rsplit_output$splits
   
   for (i in seq_along(splits_list)) {
-    print(i)
+    # print(i)
     # Access the rsplit object for the current fold
     current_split <- splits_list[[i]]
     

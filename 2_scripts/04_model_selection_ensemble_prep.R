@@ -264,11 +264,17 @@ rmspe_all_predict_ferr <- fread("./3_intermediate/tune_results/base_model/rmspe_
 
 # call plot function
 p1_hgb <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_hgb, predict_biomarkers="predict_hgb", metric="RMSPE") 
+ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_hgb.png", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_hgb.svg", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
+
 p1_ferr <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_ferr, predict_biomarkers="predict_ferr", metric="RMSPE") 
+ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_ferr.png", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_ferr.svg", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
 
 # combine plots
 p1_combined <- ggpubr::ggarrange(p1_hgb, p1_ferr, labels = c("A", "B"), ncol = 2, nrow = 1, common.legend = TRUE, legend = "bottom") 
 ggsave("./4_output/updates/figs/combined_RMSPE_tuning_no_ensemble.png", plot = p1_combined, width = 10, height = 8, unit = "in")
+ggsave("./4_output/updates/figs/combined_RMSPE_tuning_no_ensemble.svg", plot = p1_combined, width = 10, height = 8, unit = "in")
 
 # predict hgb - min rmspe by version
 min(rmspe_all_predict_hgb[rmspe_all_predict_hgb$version == "Hemoglobin only"]$rmspe_mean)
@@ -285,6 +291,8 @@ min(rmspe_all_predict_ferr[rmspe_all_predict_ferr$version == "Hemoglobin and Fer
 # put all this in loop to do for each version/prediction task
 dt_tune_results_all <- fread("./3_intermediate/tune_results/base_model/rmspe_tune_results_all.csv")
 setorder(dt_tune_results_all, version, rmspe_mean)
+
+
 
 cols_rmspe <- paste0("rmspe_rpt",
                      rep(1:3, each = 5),
@@ -441,7 +449,7 @@ for (version in list_version){
 }
 
 dt_ensemble_model <- setDT(dt_ensemble_model)
-
+print(dt_ensemble_model)
 
 # Assess the ensembles in cross validation
 # use regualr cv not nested cv
