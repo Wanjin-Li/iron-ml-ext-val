@@ -108,8 +108,10 @@ dt.factor.ferr <- dt.factor.ferr %>%
 
 ### Do cv split on donors --------
 set.seed(123)
-rsplit_res_OH <- vfold_cv(data = dt_hgb_unique_donors, v = 5, repeats = 3)
+
+# rsplit_res_OH <- vfold_cv(data = dt_hgb_unique_donors, v = 5, repeats = 3)
 rsplit_res_factor <- vfold_cv(data = dt_hgb_unique_donors, v = 5, repeats = 3)
+rsplit_res_OH <- copy(rsplit_res_factor) # make OH version and factor version of splits the same
 
 ### Replace donors in rsplit_res with actual donations -----
 replace_rsplit_data <- function(rsplit_output, dt) {
@@ -146,15 +148,108 @@ replace_rsplit_data <- function(rsplit_output, dt) {
   return(rsplit_output)
 }
 
-rsplit_OH_hgb <- replace_rsplit_data(rsplit_res_OH, dt.OH.hgb)
-rsplit_OH_ferr <- replace_rsplit_data(rsplit_res_OH, dt.OH.ferr)
-  
+
 rsplit_factor_hgb <- replace_rsplit_data(rsplit_res_factor, dt.factor.hgb)
 rsplit_factor_ferr <- replace_rsplit_data(rsplit_res_factor, dt.factor.ferr)
 
+rsplit_OH_hgb <- replace_rsplit_data(rsplit_res_OH, dt.OH.hgb)
+rsplit_OH_ferr <- replace_rsplit_data(rsplit_res_OH, dt.OH.ferr)
+
+#____________________________________________________________________________
+# (MISTAKE FIXING ONLY) make OH version and factor version of splits the same
+convert_rsplit_OH <- function(rsplit_factors_output, biomarker) {
+  
+  splits_list <- rsplit_factors_output$splits
+  
+  for (i in seq_along(splits_list)) {
+    print(i)
+    # Access the rsplit object for the current fold
+    current_split <- splits_list[[i]]
+    
+    # Get all donation data within the current split
+    donations_data <- current_split$data
+    
+    # convert factor version of donation data to OH version
+    if (biomarker == "hgb"){
+      donation_data_OH <- data.table(model.matrix(fu_hgb ~., data = donations_data))
+      donation_data_OH <- cbind(donation_data_OH,
+                                "fu_hgb" = donations_data$fu_hgb)
+    } else if (biomarker == "ferritin"){
+      donation_data_OH <- data.table(model.matrix(fu_log_ferritin ~., data = donations_data))
+      donation_data_OH <- cbind(donation_data_OH,
+                                "fu_log_ferritin" = donations_data$fu_log_ferritin)
+      
+    }
+
+    # Replace factor version data with OH version 
+    current_split$data <- donation_data_OH
+    # Replace in_ids with train_donor_idxs
+    
+    rsplit_factors_output$splits[[i]] <- current_split
+  }
+  
+  return(rsplit_factors_output)
+}
+
+rsplit_factors_h_h <- readRDS("./3_intermediate/rsplits/main_model/pred_hgb/rsplit_factors_hgb_only.rds")
+rsplit_OH_h_h <- convert_rsplit_OH(rsplit_factors_h_h, "hgb")
+
+rsplit_factors_f_h <- readRDS("./3_intermediate/rsplits/main_model/pred_ferr/rsplit_factors_hgb_only.rds")
+rsplit_OH_f_h <- convert_rsplit_OH(rsplit_factors_f_h, "ferritin")
+
+saveRDS(rsplit_OH_h_h, "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_OH_hgb_only.rds")
+saveRDS(rsplit_OH_f_h, "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_OH_hgb_only.rds")
+
+# rsplit_factors_h_h
+# 5-fold cross-validation repeated 3 times 
+# A tibble: 15 × 3
+# splits             id      id2  
+# <list>             <chr>   <chr>
+# 1 <split [2766/722]> Repeat1 Fold1
+# 2 <split [2803/685]> Repeat1 Fold2
+# 3 <split [2823/665]> Repeat1 Fold3
+# 4 <split [2763/725]> Repeat1 Fold4
+# 5 <split [2797/691]> Repeat1 Fold5
+# 6 <split [2801/687]> Repeat2 Fold1
+# 7 <split [2775/713]> Repeat2 Fold2
+# 8 <split [2755/733]> Repeat2 Fold3
+# 9 <split [2793/695]> Repeat2 Fold4
+# 10 <split [2828/660]> Repeat2 Fold5
+# 11 <split [2712/776]> Repeat3 Fold1
+# 12 <split [2847/641]> Repeat3 Fold2
+# 13 <split [2826/662]> Repeat3 Fold3
+# 14 <split [2779/709]> Repeat3 Fold4
+# 15 <split [2788/700]> Repeat3 Fold5
+
+
+# rsplit_OH_h_h
+# 5-fold cross-validation repeated 3 times 
+# A tibble: 15 × 3
+# splits             id      id2  
+# <list>             <chr>   <chr>
+# 1 <split [2766/722]> Repeat1 Fold1
+# 2 <split [2803/685]> Repeat1 Fold2
+# 3 <split [2823/665]> Repeat1 Fold3
+# 4 <split [2763/725]> Repeat1 Fold4
+# 5 <split [2797/691]> Repeat1 Fold5
+# 6 <split [2801/687]> Repeat2 Fold1
+# 7 <split [2775/713]> Repeat2 Fold2
+# 8 <split [2755/733]> Repeat2 Fold3
+# 9 <split [2793/695]> Repeat2 Fold4
+# 10 <split [2828/660]> Repeat2 Fold5
+# 11 <split [2712/776]> Repeat3 Fold1
+# 12 <split [2847/641]> Repeat3 Fold2
+# 13 <split [2826/662]> Repeat3 Fold3
+# 14 <split [2779/709]> Repeat3 Fold4
+# 15 <split [2788/700]> Repeat3 Fold5
 
 # analysis(rsplit_factor_hgb$splits[[1]])
 # assessment(rsplit_factor_hgb$splits[[1]])
+# 
+# analysis(rsplit_OH_hgb$splits[[1]])
+# assessment(rsplit_OH_hgb$splits[[1]])
+
+#__________________________________________________________________________________
 
 ### save dataframes -----
 # save one hot encoding dataframes
@@ -232,16 +327,80 @@ dt2.factor.ferr <- dt2.factor.ferr %>%
 
 ### Do cv split on donors --------
 set.seed(123)
-rsplit2_res_OH <- vfold_cv(data = dt_hgb_ferr_unique_donors, v = 5, repeats = 3)
+
+# rsplit2_res_OH <- vfold_cv(data = dt_hgb_ferr_unique_donors, v = 5, repeats = 3)
 rsplit2_res_factor <- vfold_cv(data = dt_hgb_ferr_unique_donors, v = 5, repeats = 3)
+rsplit2_res_OH <- copy(rsplit2_res_factor)
 
 ### Replace donors in rsplit_res with actual donations -----
+
+rsplit2_factor_hgb <- replace_rsplit_data(rsplit2_res_factor, dt2.factor.hgb)
+rsplit2_factor_ferr <- replace_rsplit_data(rsplit2_res_factor, dt2.factor.ferr)
 
 rsplit2_OH_hgb <- replace_rsplit_data(rsplit2_res_OH, dt2.OH.hgb)
 rsplit2_OH_ferr <- replace_rsplit_data(rsplit2_res_OH, dt2.OH.ferr)
 
-rsplit2_factor_hgb <- replace_rsplit_data(rsplit2_res_factor, dt2.factor.hgb)
-rsplit2_factor_ferr <- replace_rsplit_data(rsplit2_res_factor, dt2.factor.ferr)
+#______________________________________________________________________________
+# make OH version and factor version of splits the same 
+
+rsplit_factors_h_hf <- readRDS("./3_intermediate/rsplits/main_model/pred_hgb/rsplit_factors_hgb_ferr.rds")
+rsplit_OH_h_hf <- convert_rsplit_OH(rsplit_factors_h_hf, "hgb")
+
+rsplit_factors_f_hf <- readRDS("./3_intermediate/rsplits/main_model/pred_ferr/rsplit_factors_hgb_ferr.rds")
+rsplit_OH_f_hf <- convert_rsplit_OH(rsplit_factors_f_hf, "ferritin")
+
+saveRDS(rsplit_OH_h_hf, "./3_intermediate/rsplits/main_model/pred_hgb/rsplit_OH_hgb_ferr.rds")
+saveRDS(rsplit_OH_f_hf, "./3_intermediate/rsplits/main_model/pred_ferr/rsplit_OH_hgb_ferr.rds")
+
+#  rsplit_factors_h_hf
+#  5-fold cross-validation repeated 3 times 
+#  A tibble: 15 × 3
+# splits             id      id2  
+# <list>             <chr>   <chr>
+# 1 <split [2132/493]> Repeat1 Fold1
+# 2 <split [2115/510]> Repeat1 Fold2
+# 3 <split [2084/541]> Repeat1 Fold3
+# 4 <split [2078/547]> Repeat1 Fold4
+# 5 <split [2091/534]> Repeat1 Fold5
+# 6 <split [2080/545]> Repeat2 Fold1
+# 7 <split [2160/465]> Repeat2 Fold2
+# 8 <split [2044/581]> Repeat2 Fold3
+# 9 <split [2115/510]> Repeat2 Fold4
+# 10 <split [2101/524]> Repeat2 Fold5
+# 11 <split [2144/481]> Repeat3 Fold1
+# 12 <split [2104/521]> Repeat3 Fold2
+# 13 <split [2098/527]> Repeat3 Fold3
+# 14 <split [2081/544]> Repeat3 Fold4
+# 15 <split [2073/552]> Repeat3 Fold5
+
+#  rsplit_OH_h_hf
+#  5-fold cross-validation repeated 3 times 
+#  A tibble: 15 × 3
+# splits             id      id2  
+# <list>             <chr>   <chr>
+# 1 <split [2132/493]> Repeat1 Fold1
+# 2 <split [2115/510]> Repeat1 Fold2
+# 3 <split [2084/541]> Repeat1 Fold3
+# 4 <split [2078/547]> Repeat1 Fold4
+# 5 <split [2091/534]> Repeat1 Fold5
+# 6 <split [2080/545]> Repeat2 Fold1
+# 7 <split [2160/465]> Repeat2 Fold2
+# 8 <split [2044/581]> Repeat2 Fold3
+# 9 <split [2115/510]> Repeat2 Fold4
+# 10 <split [2101/524]> Repeat2 Fold5
+# 11 <split [2144/481]> Repeat3 Fold1
+# 12 <split [2104/521]> Repeat3 Fold2
+# 13 <split [2098/527]> Repeat3 Fold3
+# 14 <split [2081/544]> Repeat3 Fold4
+# 15 <split [2073/552]> Repeat3 Fold5
+
+# analysis(rsplit2_factor_hgb$splits[[1]])
+# assessment(rsplit2_factor_hgb$splits[[1]])
+# 
+# analysis(rsplit2_OH_hgb$splits[[1]])
+# assessment(rsplit2_OH_hgb$splits[[1]])
+
+#_________________________________________________________________________________
 
 ### save dataframes -----
 # save one hot encoding dataframes
@@ -373,19 +532,14 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 
 ### EN -----
 # 1051 hyperparam sets - done
+
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_hgb" "data_hgb_only" 1 1051 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_ferr" "data_hgb_only" 1 1051 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 0
 
 ### RF -----
 # 448 hyperparam sets
 # can do parallel computing
-
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_only" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_only" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_ferr" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_ferr" 1 448 0
+
 
 ### XGB -----
 # 4800 hyperparam sets
@@ -393,9 +547,6 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 # run one job at a time; parallel computing is slower
 
 # Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_only" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_only" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_ferr" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_ferr" 1 4800 0
 
 ### CB -----
 # 8 hyperparas for one group of training; each group takes ~1.5-2 hrs; can run ~5 jobs at the same time
@@ -407,21 +558,6 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 
 ### EN -----
 # 1051 hyperparam sets 
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 1
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 2
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_only" 1 1051 3
-
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 1
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 2
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_only" 1 1051 3
-
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 1
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 2
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_hgb" "data_hgb_ferr" 1 1051 3
-
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 1
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 2
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_nested_inner_fold.R "EN" "predict_ferr" "data_hgb_ferr" 1 1051 3
 
 
 
@@ -429,20 +565,12 @@ fwrite(cb_param_sets, "./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 # 448 hyperparam sets
 # can do parallel computing
 
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_only" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_only" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_ferr" 1 448 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_ferr" "data_hgb_ferr" 1 448 0
 
 ### XGB -----
 # 4800 hyperparam sets
 # use 36 cores only; 
 # run one job at a time; parallel computing is slower
 
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_only" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_only" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_ferr" 1 4800 0
-# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_ferr" "data_hgb_ferr" 1 4800 0
 
 ### CB -----
 # 8 hyperparas for one group of training; each group takes ~1.5-2 hrs; can run ~5 jobs at the same time
