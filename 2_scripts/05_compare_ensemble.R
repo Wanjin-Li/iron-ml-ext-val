@@ -372,6 +372,7 @@ p2_combined <- ggpubr::ggarrange(plot_em1_pred_hgb_hgb_only, plot_em1_pred_ferr_
                                  plot_em1_pred_hgb_hgb_ferr, plot_em1_pred_ferr_hgb_ferr,
                                  plot_em2_pred_hgb_hgb_ferr, plot_em2_pred_ferr_hgb_ferr,
                                  labels = c("A", "B"), ncol = 2, nrow = 4) 
+p2_combined
 ggsave("./4_output/updates/figs/combined_RMSPE_tuning_ensemble.png", plot = p2_combined, width = 12, height = 8, unit = "in")
 
 
