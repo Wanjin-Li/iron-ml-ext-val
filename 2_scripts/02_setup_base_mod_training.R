@@ -1,4 +1,4 @@
-# This file is to create regular cross-validation project and hyperparameter sets
+# This file is to create regular cross-validation object and hyperparameter sets
 
 #### Main Model (Train on RISE and use these models to validate on SANBS, Vitalant, and Sanquin)
 # No Race variable
