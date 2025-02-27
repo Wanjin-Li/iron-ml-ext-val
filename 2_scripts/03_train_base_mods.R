@@ -1,3 +1,5 @@
+# This file is to train the base model through regular cross-validation
+
 # Meant to be run via command line!
 #
 # This script takes arguments from the command line/terminal to train the 
@@ -23,14 +25,6 @@
 #
 #. outer_fold: 0 for  regular cross validation on whole data
 #.             1, 2, or 3 for outer CV folds 1, 2, or 3
-
-
-# Here is an example for what could be entered into command line on server
-#.  to run this script
-#.  will train elasticnet models with hyperparameter configs 1 throgh
-#.  5 predicting Hb using the 'Hb only data with regular (not nested) CV
-#
-# Rscript --vanilla 03_train_base_models.R "EN" "predict_hgb" "data_hgb_only" 1 5 0
 
 
 # Parse command line arguments ----
@@ -63,8 +57,6 @@ if (mod_name == "RF") {
   param_sets <- fread("./3_intermediate/hyperparameters/cb_hyperparameters.csv")
 }
 
-# !!! JENNIFER: THIS WILL NEED UPDATING BASED ON HOW YOU ARE DOING THE DATA 
-#.  and to use the right outer fold version
 
 # Load rsplit training dataset depending on biomarkers in data
 if (predict_biomarkers == "predict_hgb") {  # specify which biomarker to predict: hgb
@@ -121,3 +113,31 @@ tune_subset(mod_name=mod_name,
 
 #Train subset will output a csv file with the RMSPE for each hyperparameter
 #. set for each fold of (nested or regular) cross validation. 
+
+# RUNNING MODEL SELECTION PROCEDURE ---------------------------
+
+# To run the model selection we will launch multiple
+#. jobs onto the server, each one training a subset of the
+#. model configurations and saving the resulting RMSPEs
+#. over the 3 repeats of 5-fold CV
+#. These jobs will call 03_train_base_models.R
+#. with arguments to specify which model configurations
+#. to develop
+
+### EN -----
+# 1051 hyperparam sets
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "EN" "predict_hgb" "data_hgb_only" 1 1051 0
+
+### RF -----
+# 448 hyperparam sets
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "RF" "predict_hgb" "data_hgb_only" 1 448 0
+
+
+### XGB -----
+# 4800 hyperparam sets
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "XGB" "predict_hgb" "data_hgb_only" 1 4800 0
+
+### CB -----
+# 1260 hyperparam sets
+# Rscript --vanilla /home/wanjinli/iron-ml-ext-val/2_scripts/03_train_base_mods.R "CB" "predict_hgb" "data_hgb_only" 1 1260 0
+
