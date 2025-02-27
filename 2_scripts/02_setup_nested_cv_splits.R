@@ -415,7 +415,7 @@ rsplit_OH_f_h_outer3 <- convert_rsplit_OH(rsplit_factors_f_h_outer3, "ferritin")
 saveRDS(rsplit_OH_f_h_outer3, "./3_intermediate/rsplits/nested_model/inner_fold/pred_ferr/rsplit_OH_hgb_only_outer_fold_3.rds")
 
 
-### Update model development data ----
+### Update model development data
 # convert the factor version of model development data to OH version
 
 # all donations - both training and testing splits
