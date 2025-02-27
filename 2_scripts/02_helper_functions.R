@@ -1,4 +1,4 @@
-# Help functions for creating cross_validation and nested cross validation objects
+# This file is to create helper functions for creating cross_validation and nested cross validation objects
 
 # Replace donors in rsplit_res with actual donations; remove DonorID
 replace_rsplit_data <- function(rsplit_output, dt) {
@@ -9,7 +9,6 @@ replace_rsplit_data <- function(rsplit_output, dt) {
   splits_list <- rsplit_output$splits
   
   for (i in seq_along(splits_list)) {
-    # print(i)
     # Access the rsplit object for the current fold
     current_split <- splits_list[[i]]
     
@@ -71,6 +70,7 @@ replace_rsplit_data_with_id <- function(rsplit_output, dt) {
   return(rsplit_output)
 }
 
+# Create a one-hot encoded version of a dataset 
 create_OH_var <- function(col_to_exclude, dt.md.outer, fu_outcome){
   column_to_exclude <- col_to_exclude
   if (fu_outcome == "fu_hgb"){
@@ -89,6 +89,7 @@ create_OH_var <- function(col_to_exclude, dt.md.outer, fu_outcome){
   return(dt.OH)
 }
 
+# Create a factor version of a dataset
 create_factor_var <- function(dt.md.outer){
   dt.factor <- copy(dt.md.outer)
   char_columns <- colnames(dt.factor)[unlist(dt.factor[, lapply(.SD, is.character),][1,])]
@@ -98,6 +99,7 @@ create_factor_var <- function(dt.md.outer){
   return(dt.factor)
 }
 
+# Get unique donors
 get_unique_donors <- function(dt.training){
   hgb_unique_donors <- unique(dt.training$RandID)
   print(paste0(length(hgb_unique_donors), " unique donors"))
@@ -105,6 +107,7 @@ get_unique_donors <- function(dt.training){
   return(dt_hgb_unique_donors)
 }
 
+# Remove extra columns
 remove_extra_cols <- function(dt.training){
   dt.training$sex <- as.character(dt.training$sex)
   
@@ -115,11 +118,10 @@ remove_extra_cols <- function(dt.training){
                    "race")
   
   dt.training[, c(identifiers) := NULL]
-  
-
   return(dt.training)
 }
 
+# Retrieve outer fold data for nested cross-validation
 retrieve_outer_fold_data <- function(dt.training, rsplit, var_version, data_version){
   for (i in 1:length(rsplit$splits)){
     donor_outer <- analysis(rsplit$splits[[i]])
