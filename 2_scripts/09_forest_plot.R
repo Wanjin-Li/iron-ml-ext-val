@@ -106,7 +106,7 @@ t_dat[, Variable := factor(Variable, levels=unique(Variable))]
 # Store the regression results using time_to_fu as polynomial terms
 t_dat_time_to_fu <- t_dat[Variable == "time_to_fu" | Variable == "I(time_to_fu^2)" | Variable == "I(time_to_fu^3)"]
 setorder(t_dat_time_to_fu, Variable)
-fwrite(t_dat_time_to_fu, "./4_output/updates/figs/forest_polyfu_coef.csv")
+fwrite(t_dat_time_to_fu, "./4_output/forest_polyfu_coef.csv")
 
 # Plotting
 
@@ -155,11 +155,11 @@ new_forest_plt <- grid.arrange(forest_plt,top=top_label, right='Follow-up outcom
 
 
 # Open PNG device with desired size and resolution
-png(filename = "./4_output/updates/figs/forest_v2.png", width = 7.8, height = 6, units = "in", res = 300)
+png(filename = "./4_output/forest_v2.png", width = 7.8, height = 6, units = "in", res = 300)
 grid.draw(new_forest_plt)
 dev.off()
 
-svg(filename = "./4_output/updates/figs/forest_v2.svg", width = 7.8, height = 6)
+svg(filename = "./4_output/forest_v2.svg", width = 7.8, height = 6)
 grid.draw(new_forest_plt)
 dev.off()
 
@@ -215,15 +215,15 @@ combined_plot <- grid.arrange(
 print(combined_plot)
 
 
-png(filename = "./4_output/updates/figs/forest_panel.png", width = 9, height = 14, units = "in", res = 300)
+png(filename = "./4_output/forest_panel.png", width = 9, height = 14, units = "in", res = 300)
 grid.draw(combined_plot)
 dev.off()
 
-svg(filename = "./4_output/updates/figs/forest_panel.svg", width = 9, height = 14)
+svg(filename = "./4_output/forest_panel.svg", width = 9, height = 14)
 grid.draw(combined_plot)
 dev.off()
 
-pdf(file = "./4_output/updates/figs/forest_panel.pdf", width = 9, height = 14)
+pdf(file = "./4_output/forest_panel.pdf", width = 9, height = 14)
 grid.draw(combined_plot)
 dev.off()
 

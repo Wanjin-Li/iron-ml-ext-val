@@ -487,9 +487,9 @@ final_plot_2 <- grid.arrange(final_plot, top="Baseline biomarkers included", rig
 final_plot_2
 
 
-fname_svg <- paste0("./4_output/updates/figs/", "fig3.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "fig3.png")
-fname_pdf <- paste0("./4_output/updates/figs/", "fig3.pdf")
+fname_svg <- paste0("./4_output/", "fig3.svg") 
+fname_png <- paste0("./4_output/", "fig3.png")
+fname_pdf <- paste0("./4_output/", "fig3.pdf")
 
 ggsave(plot = final_plot_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_2, fname_png, width = 6, height = 5.5, unit = "in")
@@ -685,9 +685,9 @@ final_plot_ci_2 <- grid.arrange(final_plot_ci,
 
 final_plot_ci_2
 
-fname_svg <- paste0("./4_output/updates/figs/", "fig3_ci.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "fig3_ci.png")
-fname_pdf <- paste0("./4_output/updates/figs/", "fig3_ci.pdf")
+fname_svg <- paste0("./4_output/", "fig3_ci.svg") 
+fname_png <- paste0("./4_output/", "fig3_ci.png")
+fname_pdf <- paste0("./4_output/", "fig3_ci.pdf")
 
 ggsave(plot = final_plot_ci_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_ci_2, fname_png, width = 6, height = 5.5, unit = "in")
@@ -2358,11 +2358,11 @@ r_hist <- (r_hf_hist / r_h_hist) +
   )  
 r_hist
 
-png(filename = "./4_output/updates/figs/rise_biomarkers_histogram.png", width = 10, height = 10, units = "in", res = 300)
+png(filename = "./4_output/rise_biomarkers_histogram.png", width = 10, height = 10, units = "in", res = 300)
 grid.draw(r_hist)
 dev.off()
 
-svg(filename = "./4_output/updates/figs/rise_biomarkers_histogram.svg", width = 10,, height = 10)
+svg(filename = "./4_output/rise_biomarkers_histogram.svg", width = 10,, height = 10)
 grid.draw(r_hist)
 dev.off()
 

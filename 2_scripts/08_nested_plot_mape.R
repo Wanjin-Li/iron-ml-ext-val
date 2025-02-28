@@ -478,8 +478,8 @@ final_plot_2 <- grid.arrange(final_plot, top="Baseline biomarkers included", rig
 final_plot_2
 
 
-fname_svg <- paste0("./4_output/updates/figs/", "fig3_MAPE.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "fig3_MAPE.png")
+fname_svg <- paste0("./4_output/", "fig3_MAPE.svg") 
+fname_png <- paste0("./4_output/", "fig3_MAPE.png")
 
 ggsave(plot = final_plot_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_2, fname_png, width = 6, height = 5.5, unit = "in")

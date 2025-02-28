@@ -170,8 +170,8 @@ bp1 <- ggplot(data = res1, aes(x = time_to_fu, y = percent, group = id, color=bi
 
 bp1 + facet_grid(. ~ biomarker)
 
-ggsave("./4_output/updates/figs/figS3_slope_graph.png")
-ggsave("./4_output/updates/figs/figS3_slope_graph.svg")
+ggsave("./4_output/figS3_slope_graph.png")
+ggsave("./4_output/figS3_slope_graph.svg")
 
 #################### UNUSED ##################
 # res_all_3 <- rbind(df, df1) # uncomment to include ferritin
@@ -265,6 +265,6 @@ p3 <- ggplot(hgb, aes(x=percent, color=time)) +
   theme(legend.position = "none")
 
 ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
-ggsave("./4_output/updates/figs/figs2_densityplot.svg", width = 7)
-ggsave("./4_output/updates/figs/figs2_densityplot.png",  width = 7)
+ggsave("./4_output/figs2_densityplot.svg", width = 7)
+ggsave("./4_output/figs2_densityplot.png",  width = 7)
 

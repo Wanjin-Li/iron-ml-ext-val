@@ -578,8 +578,8 @@ final_plot_2 <- grid.arrange(final_plot, top="Baseline biomarkers included", rig
 final_plot_2
 
 
-fname_svg <- paste0("./4_output/updates/figs/", "fig3_RMSE.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "fig3_RMSE.png")
+fname_svg <- paste0("./4_output/", "fig3_RMSE.svg") 
+fname_png <- paste0("./4_output/", "fig3_RMSE.png")
 
 ggsave(plot = final_plot_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_2, fname_png, width = 6, height = 5.5, unit = "in")
@@ -775,9 +775,9 @@ final_plot_ci_2 <- grid.arrange(final_plot_ci,
 
 final_plot_ci_2
 
-fname_svg <- paste0("./4_output/updates/figs/", "fig3_RMSE_ci.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "fig3_RMSE_ci.png")
-fname_pdf <- paste0("./4_output/updates/figs/", "fig3_RMSE_ci.pdf")
+fname_svg <- paste0("./4_output/", "fig3_RMSE_ci.svg") 
+fname_png <- paste0("./4_output/", "fig3_RMSE_ci.png")
+fname_pdf <- paste0("./4_output/", "fig3_RMSE_ci.pdf")
 
 ggsave(plot = final_plot_ci_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_ci_2, fname_png, width = 6, height = 5.5, unit = "in")

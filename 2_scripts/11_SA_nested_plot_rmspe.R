@@ -475,8 +475,8 @@ final_plot <- plot_grid(y_axis_label, combined_plot, ncol = 2, rel_widths = c(0.
 final_plot_2 <- grid.arrange(final_plot, top="Baseline biomarkers included", right="Follow-up outcome predicted")
 final_plot_2
 
-fname_svg <- paste0("./4_output/updates/figs/", "SA_fig3.svg") 
-fname_png <- paste0("./4_output/updates/figs/", "SA_fig3.png")
+fname_svg <- paste0("./4_output/", "SA_fig3.svg") 
+fname_png <- paste0("./4_output/", "SA_fig3.png")
 
 ggsave(plot = final_plot_2, fname_svg, width = 6, height = 5.5, unit = "in")
 ggsave(plot = final_plot_2, fname_png, width = 6, height = 5.5, unit = "in")

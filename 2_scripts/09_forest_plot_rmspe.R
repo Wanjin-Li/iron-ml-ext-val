@@ -544,11 +544,11 @@ new_forest_plt_rmspe <- grid.arrange(forest_plt_rmspe,top=top_label, right='Foll
 new_forest_plt_rmspe
 
 # Open PNG device with desired size and resolution
-png(filename = "./4_output/updates/figs/forest_rmspe.png", width = 7.8, height = 6, units = "in", res = 300)
+png(filename = "./4_output/forest_rmspe.png", width = 7.8, height = 6, units = "in", res = 300)
 grid.draw(new_forest_plt_rmspe)
 dev.off()
 
-svg(filename = "./4_output/updates/figs/forest_rmspe.svg", width = 7.8, height = 6)
+svg(filename = "./4_output/forest_rmspe.svg", width = 7.8, height = 6)
 grid.draw(new_forest_plt_rmspe)
 dev.off()
 
