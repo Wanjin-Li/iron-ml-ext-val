@@ -6,6 +6,8 @@ library(rsample)
 library(caret)
 library(dplyr)
 library(data.table)
+# library(devtools)
+# devtools::install_github('catboost/catboost', subdir = 'catboost/R-package')
 library(catboost)
 
 ## DATA MUNGING --------
@@ -35,14 +37,6 @@ gen_features_list <- function(dt, version){
               "factor"=dt.md))
   
 }
-
-# ## DATA PROCESSING ----
-
-# #Load top model
-# top.model <- xgb.load("./data/topmodel")
-# calib_weights <- readRDS("./data/calib_weights_noplatt.RDS")
-
-
 
 
 
@@ -343,8 +337,6 @@ mod_eval <- function(train_data,
 #GBM uses dt_split_xgb
 #EN (no interaction) uses dt_split_xgb (should be dt_split_factor?)
 
-# JENNIFER: need to fix dt_split so it will do 5-fold 3-rpt CV, nothing about outer folds!----
-
 mod_spec_as_list <- function(mod_id, biomarkers){
   mod_id_split <- unlist(str_split(mod_id, "\\."))  #     # XGB.1406 -> XGB
   mod_name <-mod_id_split[1]  
@@ -368,15 +360,15 @@ mod_spec_as_list <- function(mod_id, biomarkers){
 }
 
 ##ENSEMBLE MODEL ASSESSMENT
-run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensemble/updates/", ensemble_config="NA", version="NA",
+run_ensemble_assess <- function(base_model_specs, 
+                                path = "./3_intermediate/ensemble/updates/", 
+                                ensemble_config="NA", version="NA",
                                 ensemble_type="average"){
   
   outcome<-list()
   outcome_base_mods <- list()
   EPSILON <- 1e-10  # for RMSPE to prevent division by 0
-  
-    # JENNIFER- this must be fixed, should not be using outer folds!!! ---------
-  
+
   for (row_indx in 1:nrow(base_model_specs[[1]]$dt_split)){ # the number of splits = 5-fold cv 3 rpts = 15
     # Table to store predictions across each outer fold
     # Table to store predictions across each inner fold
@@ -421,8 +413,9 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
     # will contain predicted values of all 6 selected models for one repeat
     dt_single_fold_preds_base<-rbind(dt_single_fold_preds_base,
                                     dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
-    dt_single_fold_preds_base[, donor_idx := 1:.N, by = base_model]
-
+    # dt_single_fold_preds_base[, donor_idx := 1:.N, by = base_model]
+    dt_single_fold_preds_base[, donor_idx := rep(1:(nrow(dt_single_fold_preds_base)/base_model_idx), base_model_idx)]
+    
     print(dt_single_fold_preds_base)
     
     # model average prediction
@@ -459,6 +452,101 @@ run_ensemble_assess <- function(base_model_specs, path = "./3_intermediate/ensem
   fwrite(dt.results, paste0(path, paste0("ensemble_assess_results_", ensemble_config, "_", version,"_", ensemble_type,".csv")))
 }
 
+
+
+
+# Assess ensemble model on outer folds (3 repeats of fold CV)
+outer_fold_ensemble_assess <- function(base_model_specs, 
+                                       path = "./3_intermediate/ensemble/updates/nested_model/", 
+                                       ensemble_config="NA", version="NA", outer_fold=NA,
+                                       ensemble_type="average"){
+  
+  outcome<-list()
+  outcome_base_mods <- list()
+  EPSILON <- 1e-10  # for RMSPE to prevent division by 0
+  
+  for (row_indx in 1:nrow(base_model_specs[[1]]$dt_split)){ # the number of splits = 5-fold cv 3 rpts = 15
+    # Table to store predictions across each outer fold
+    # Table to store predictions across each inner fold
+    
+    dt_single_fold_preds_base <- data.table(
+      "base_model" = character(),
+      "prediction"= numeric(),
+      "fu_outcome"= numeric())
+    
+    dt_single_fold_preds <- data.table(
+      "base_model" = character(),
+      "Set"=character(),
+      "prediction"= numeric(),
+      "fu_outcome"= numeric()
+    )
+    
+    for (base_model_idx in 1:length(base_model_specs)){  # the number of base models selected into ensemble (i.e. 6)
+      # Generate predictions on single inner fold
+      # Keep raw predictions from both train and test data within the fold
+      # Save result from training data
+      rsplit_obj <- base_model_specs[[base_model_idx]]$dt_split$splits[[row_indx]] # this need to be changed to row number index
+      train_data <- analysis(rsplit_obj)
+      validate_data <- assessment(rsplit_obj)
+      
+      params <- base_model_specs[[base_model_idx]]$hyperparams
+      mod_name <- base_model_specs[[base_model_idx]]$mod_name
+      
+      # print(paste0("# of rows: ", nrow(dt_single_fold_preds)))
+      
+      dt_single_fold_preds <- rbind(
+        dt_single_fold_preds,
+        cbind("base_model" = names(base_model_specs)[base_model_idx],
+              mod_eval(train_data, validate_data,
+                       params,
+                       mod_name,
+                       return_train_pred=TRUE))
+      )
+      
+    }
+    
+    # extract only test values
+    # will contain predicted values of all 6 selected models for one repeat
+    dt_single_fold_preds_base<-rbind(dt_single_fold_preds_base,
+                                     dt_single_fold_preds[Set=="Test", .SD, .SDcols=c("base_model", "prediction", "fu_outcome")])
+    # dt_single_fold_preds_base[, donor_idx := 1:.N, by = base_model]
+    dt_single_fold_preds_base[, donor_idx := rep(1:(nrow(dt_single_fold_preds_base)/base_model_idx), base_model_idx)]
+    
+    print(dt_single_fold_preds_base)
+    
+    # model average prediction
+    dt_ensemble_pred <- dt_single_fold_preds_base[, list("prediction" = mean(prediction),
+                                                         "fu_outcome" = mean(fu_outcome)),
+                                                  by = donor_idx] 
+    
+    # print(dt_ensemble_pred)
+    
+    # the rmspe of one repeat
+    rmspe <- (sqrt(mean(((dt_ensemble_pred$fu_outcome - dt_ensemble_pred$prediction) / (dt_ensemble_pred$fu_outcome + EPSILON))**2))) * 100
+    
+    outcome[paste0("rmspe_rpt",
+                   formatC(ceiling(row_indx/5)),
+                   "_fold",
+                   formatC((row_indx-1)%%5 + 1))] <- rmspe
+    
+    print(paste0("base model fold complete: ", row_indx))
+    
+    outcome_base_mods[[paste0("rmspe_rpt",
+                              formatC(ceiling(row_indx/5)),
+                              "_fold",
+                              formatC((row_indx-1)%%5 + 1))]] <- dt_single_fold_preds_base[, list(prediction, fu_outcome), by=base_model]
+    
+  }
+  
+  dt.results <- as.data.table(outcome)
+  dt.results[ , rmspe_mean := rowMeans(.SD), .SDcols =  # get mean over all folds (average across all cols in the row)
+                paste0("rmspe_rpt",
+                       formatC(ceiling(1:15/5)),
+                       "_fold",
+                       formatC((1:15-1)%%5 + 1))]
+  
+  fwrite(dt.results, paste0(path, paste0("ensemble_assess_results_", ensemble_config, "_", version,"_", "outer_fold_", outer_fold, "_", ensemble_type,".csv")))
+}
 
 
 
@@ -738,34 +826,6 @@ risk_scores_ensemble <- function(features_list,  # 2 versions: OH=one hot, facto
             raw_scores(mod_name,
                        base_mods[[base_mod_idx]], features)))
   }
-  # print(dt_base_preds)
-  #     base_model prediction fu_outcome
-  # 1:   XGB.4066   12.74841   13.15789
-  # 2:   XGB.4066   12.80722   11.84211
-  # 3:   XGB.4066   13.26275   13.81579
-  # 4:   XGB.4066   13.04470   13.15789
-  # 5:   XGB.4066   13.04760   12.82895
-  # ---                                 
-  # 3146:     RF.208   12.46228   13.15789
-  # 3147:     RF.208   13.72977   16.80000
-  # 3148:     RF.208   14.58893   14.14474
-  # 3149:     RF.208   12.64662   12.17105
-  
-  dt_base_preds[,donor_idx := rep(1:(nrow(dt_base_preds)/base_mod_idx), base_mod_idx)]
-  
-  # print(dt_base_preds)
-  #     base_model prediction fu_outcome donor_idx
-  # 1:   XGB.4066   12.74841   13.15789         1
-  # 2:   XGB.4066   12.80722   11.84211         2
-  # 3:   XGB.4066   13.26275   13.81579         3
-  # 4:   XGB.4066   13.04470   13.15789         4
-  # 5:   XGB.4066   13.04760   12.82895         5
-  # ---                                           
-  # 3146:     RF.208   12.46228   13.15789       521
-  # 3147:     RF.208   13.72977   16.80000       522
-  # 3148:     RF.208   14.58893   14.14474       523
-  # 3149:     RF.208   12.64662   12.17105       524
-  # 3150:     RF.208   12.76384   12.50000       525
   
   #model average
   dt_ensemb_pred <- dt_base_preds[, list("prediction"=mean(prediction),
