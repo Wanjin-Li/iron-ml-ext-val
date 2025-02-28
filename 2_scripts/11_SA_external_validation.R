@@ -1,5 +1,5 @@
 # This script performs the sensitivity analysis that externally validates selected models from regular CV 
-# on external cohorts with single donation per donor.
+# on external cohorts with single donation per donor (SA and US).
 
 library(ggplot2)
 library(tidyverse)
