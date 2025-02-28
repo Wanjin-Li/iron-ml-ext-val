@@ -1,4 +1,5 @@
-# This file is to train the base model through nested cross-validation to obtained unbiased model performance
+# This script trains the base model using nested cross-validation 
+# to obtain an unbiased estimate of model performance.
 
 
 # Meant to be run via command line!

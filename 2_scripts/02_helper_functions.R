@@ -1,4 +1,4 @@
-# This file is to create helper functions for creating cross_validation and nested cross validation objects
+# This script defines helper functions for creating cross-validation and nested cross-validation objects.
 
 # Replace donors in rsplit_res with actual donations; remove DonorID
 replace_rsplit_data <- function(rsplit_output, dt) {

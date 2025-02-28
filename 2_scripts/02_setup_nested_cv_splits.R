@@ -1,4 +1,4 @@
-# This file is to create nested cross-validation object 
+# This script creates nested cross-validation objects.
 
 # GENERATE NESTED CV OBJECTS -----------
 #. Will construct 3 outer CV folds in which the model 

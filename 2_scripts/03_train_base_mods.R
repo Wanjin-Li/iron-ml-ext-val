@@ -1,4 +1,4 @@
-# This file is to train the base model through regular cross-validation
+# This file trains the base model using regular cross-validation.
 
 # Meant to be run via command line!
 #
