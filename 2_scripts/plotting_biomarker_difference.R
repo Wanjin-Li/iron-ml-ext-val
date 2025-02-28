@@ -2,7 +2,7 @@
 library(ggplot2)
 library(tidyverse)
 library(ggpubr)
-
+library(data.table)
 
 theme_set(theme_bw()+theme(axis.line = element_line(colour = "black"),
                              panel.grid.major = element_blank(),
@@ -109,6 +109,15 @@ df1[df1$time == 'index_ferritin', ]$percent <- 0  # set time_to_followup of inde
 df1$biomarker <- "ferritin"
 
 
+# x = time to follow up (days)
+# y = percent ferritin change
+ggplot(data = df1, aes(x = time_to_fu, y = percent, group = id))+
+  ylab("Percent ferritin change = 100% x (follow up - index) / index ")+
+  xlab("Time to follow up (days)")+
+  geom_point(size=0.1, color="#fc9272")+
+  geom_line(size = 0.3, alpha = 0.1, color="#fc9272")
+
+
 ### Log 10
 r_hf$index_log10_ferritin <- log10(r_hf$index_ferritin)
 r_hf$fu_log10_ferritin <- log10(r_hf$fu_ferritin)
@@ -130,15 +139,7 @@ ggplot(data = df2, aes(x = time_to_fu, y = percent_log10, group = id))+
 
 
 
-# x = time to follow up (days)
-# y = percent hgb change
-ggplot(data = df1, aes(x = time_to_fu, y = percent, group = id))+
-  ylab("Percent ferritin change = 100% x (follow up - index) / index ")+
-  xlab("Time to follow up (days)")+
-  geom_point(size=0.1, color="#fc9272")+
-  geom_line(size = 0.3, alpha = 0.1, color="#fc9272")
-
-
+#################### UNUSED ##################
 ## facet hgb, ferr
 res <- rbind(df, df1)
 
@@ -150,6 +151,7 @@ bp <- ggplot(data = res, aes(x = time_to_fu, y = percent, group = id, color=biom
 
 
 bp + facet_grid(. ~ biomarker)
+#################### UNUSED ##################
 
 
 #### facet hgb, log 10 ferr
@@ -159,16 +161,21 @@ res1 <- rbind(df, df_to_bind)
 res1$biomarker = factor(res1$biomarker, levels=c("log10 ferritin", "hemoglobin"))
 
 bp1 <- ggplot(data = res1, aes(x = time_to_fu, y = percent, group = id, color=biomarker))+
-  ylab("Percent change between index and follow up donations")+
-  xlab("Time to follow up (days)")+
+  ylab("Percent change")+
+  xlab("Time to follow-up (days)")+
   geom_point(size=0.1)+
-  geom_line(size = 0.3, alpha = 0.1)
+  geom_line(size = 0.3, alpha = 0.1)+
+  scale_color_manual(values = c("#00BA38", "#619CFF"))
 
 
 bp1 + facet_grid(. ~ biomarker)
 
+ggsave("./4_output/updates/figs/figS3_slope_graph.png")
+ggsave("./4_output/updates/figs/figS3_slope_graph.svg")
 
-res_all_3 <- rbind(df, df1)
+#################### UNUSED ##################
+# res_all_3 <- rbind(df, df1) # uncomment to include ferritin
+res_all_3 <- df
 res_all_3 <- rbind(res_all_3, df_to_bind)
 res_all_3$biomarker = factor(res_all_3$biomarker, levels=c("ferritin", "log10 ferritin", "hemoglobin"))
 
@@ -180,9 +187,12 @@ bp2 <- ggplot(data = res_all_3, aes(x = time_to_fu, y = percent, group = id, col
   theme(legend.position = "none")  # no legend
 
 
+
 bp2 + facet_grid(. ~ biomarker)
 
 #ggsave("./4_output/figs/suppfig2_slope_graph.svg")
+
+#################### UNUSED ##################
 
 
 
@@ -209,30 +219,52 @@ res <- rbind(hgb, ferr)
 res <- rbind(res, logferr)
 res$time = factor(res$time, levels=c("Follow up ferritin", "Follow up log10 ferritin", "Follow up hemoglobin"))
 
+################## UNUSED ##########################
 # plot1 <- ggplot(res, aes(x=percent, color=time)) +
 #   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500)
 # plot1 + facet_grid(. ~ time)
 
+# p1 <- ggplot(ferr, aes(x=percent, color=time)) +
+#   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#F8766D")+
+#   xlab("Percent change")+
+#   labs(title="Ferritin")
+
+# p2 <- ggplot(logferr, aes(x=percent, color=time)) +
+#   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#00BA38")+
+#   xlab("Percent change")+
+#   labs(title="Log10 Ferritin")
+
+# p3 <- ggplot(hgb, aes(x=percent, color=time)) +
+#   geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#619CFF")+
+#   xlab("Percent change")+
+#   labs(title="Hemoglobin")
+
+################## UNUSED ##########################
+
+
+################### change to density plot instead #############################
+
 p1 <- ggplot(ferr, aes(x=percent, color=time)) +
-  geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#F8766D")+
+  geom_density(color="#F8766D", fill="#F8766D")+
   xlab("Percent change")+
-  labs(title="Ferritin")
-#ggsave("./4_output/figs/suppfig3a_hist_ferritin.svg")
+  labs(title="Ferritin")+  
+  theme(legend.position = "none")  # no legend
+
 
 p2 <- ggplot(logferr, aes(x=percent, color=time)) +
-  geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#00BA38")+
+  geom_density(color="#00BA38" , fill="#00BA38")+
   xlab("Percent change")+
-  labs(title="Log10 Ferritin")
-#ggsave("./4_output/figs/suppfig3b_hist_log10ferritin.svg")
+  labs(title="Log10 Ferritin")+
+  theme(legend.position = "none")
+
 
 p3 <- ggplot(hgb, aes(x=percent, color=time)) +
-  geom_histogram(fill="white", alpha=0.5, position="identity", bins = 500, color="#619CFF")+
+  geom_density(color="#619CFF", fill="#619CFF")+
   xlab("Percent change")+
-  labs(title="Hemoglobin")
-#ggsave("./4_output/figs/suppfig3c_hist_hgb.svg")
-
+  labs(title="Hemoglobin") +
+  theme(legend.position = "none")
 
 ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
-ggsave("./4_output/figs/suppfig3_hist.svg")
-ggsave("./4_output/figs/suppfig3_hist.png")
+ggsave("./4_output/updates/figs/figs2_densityplot.svg", width = 7)
+ggsave("./4_output/updates/figs/figs2_densityplot.png",  width = 7)
 
