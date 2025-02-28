@@ -29,7 +29,7 @@
 ##################################
 
 #### Note:
-# In donation time, have one value 10002 which should be 1002 since donatino time is military time
+# In donation time, have one value 10002 which should be 1002 since donatinon time is military time
 
 library(data.table)
 library(dplyr)
@@ -42,7 +42,6 @@ str(df)
 # Remove duplicates ----
 
 ## Remove duplicates (where every entry is the exact same) ----
-# I found 910 duplicated samples (where every entry is the exact same). I removed those duplicates first.
 
 to_remove <- df[duplicated(df)]
 df <- anti_join(df, to_remove)  # removes all duplicates (910 x 2)

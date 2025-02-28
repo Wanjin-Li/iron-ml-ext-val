@@ -48,8 +48,8 @@ d.hgb_only <- subset(d.hgb_only, select = -c(index_ferritin, index_log_ferritin)
 # days_since_last_rbc_loss: set NAs (%) to 10 years ago (10*365 days)
 
 # check NA percentage
-sum(is.na(d.hgb_ferr$days_since_last_rbc_loss)) / length(d.hgb_ferr$days_since_last_rbc_loss)  # 11.9%
-sum(is.na(d.hgb_only$days_since_last_rbc_loss)) / length(d.hgb_only$days_since_last_rbc_loss)  # 10.4%
+sum(is.na(d.hgb_ferr$days_since_last_rbc_loss)) / length(d.hgb_ferr$days_since_last_rbc_loss)  
+sum(is.na(d.hgb_only$days_since_last_rbc_loss)) / length(d.hgb_only$days_since_last_rbc_loss)  
 
 
 d.hgb_ferr$days_since_last_rbc_loss[is.na(d.hgb_ferr$days_since_last_rbc_loss)] <- 3650
@@ -57,8 +57,8 @@ d.hgb_only$days_since_last_rbc_loss[is.na(d.hgb_only$days_since_last_rbc_loss)] 
 
 # days_since_last_drbc_loss: set NAs (%) to 10 years ago (10*365 days)
 # check NA percentage
-sum(is.na(d.hgb_ferr$days_since_last_drbc_loss)) / length(d.hgb_ferr$days_since_last_drbc_loss)  # 99.5%
-sum(is.na(d.hgb_only$days_since_last_drbc_loss)) / length(d.hgb_only$days_since_last_drbc_loss)  # 99.6%
+sum(is.na(d.hgb_ferr$days_since_last_drbc_loss)) / length(d.hgb_ferr$days_since_last_drbc_loss) 
+sum(is.na(d.hgb_only$days_since_last_drbc_loss)) / length(d.hgb_only$days_since_last_drbc_loss)  
 
 d.hgb_ferr$days_since_last_drbc_loss[is.na(d.hgb_ferr$days_since_last_drbc_loss)] <- 3650
 d.hgb_only$days_since_last_drbc_loss[is.na(d.hgb_only$days_since_last_drbc_loss)] <- 3650

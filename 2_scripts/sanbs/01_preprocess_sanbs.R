@@ -178,18 +178,10 @@ df[df$blood_type == "ONEG"]$blood_type <- "O-"
 df <- df[!(df$blood_type == "UNK" | df$blood_type == "NULL"),]
 table(df$blood_type)
 
-
-
 ## recode race variable ---- 
 # ignore all other race classes for now
 table(df$race)
-# African Black         Asian    Mixed Race       unknown         White 
-# 1832692               341417        280927         46590       2607833 
 df[df$race == "African Black"]$race <- "Black"
-
-
-
-
 
 # Subsetting dataframe ----
 # Because of rbc_loss_last_12_months and rbc_loss_last_24_months, we lose 2 years worth of data for each donor
