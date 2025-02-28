@@ -182,7 +182,7 @@ for (fold_id in outer_fold_id){
                                      labels = c("A", "B"), ncol = 2, nrow = 1) 
   
   # save plot
-  ggsave(paste0("./4_output/updates/figs/combined_RMSPE_tuning_ensemble_", fold_id, ".png"), plot = combined_plot, width = 12, height = 8, unit = "in")
+  ggsave(paste0("./4_output/combined_RMSPE_tuning_ensemble_", fold_id, ".png"), plot = combined_plot, width = 12, height = 8, unit = "in")
   
 }
 

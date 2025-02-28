@@ -261,17 +261,17 @@ rmspe_all_predict_ferr <- fread("./3_intermediate/tune_results/base_model/rmspe_
 
 # call plot function
 p1_hgb <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_hgb, predict_biomarkers="predict_hgb", metric="RMSPE") 
-ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_hgb.png", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
-ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_hgb.svg", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/RMSPE_tuning_no_ensemble_predict_hgb.png", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/RMSPE_tuning_no_ensemble_predict_hgb.svg", plot = p1_hgb, width = 6, height = 5.5, unit = "in")
 
 p1_ferr <- plot_model_hyperparams(dt_tune_results=rmspe_all_predict_ferr, predict_biomarkers="predict_ferr", metric="RMSPE") 
-ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_ferr.png", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
-ggsave("./4_output/updates/figs/RMSPE_tuning_no_ensemble_predict_ferr.svg", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/RMSPE_tuning_no_ensemble_predict_ferr.png", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
+ggsave("./4_output/RMSPE_tuning_no_ensemble_predict_ferr.svg", plot = p1_ferr, width = 6, height = 5.5, unit = "in")
 
 # combine plots
 p1_combined <- ggpubr::ggarrange(p1_hgb, p1_ferr, labels = c("A", "B"), ncol = 2, nrow = 1, common.legend = TRUE, legend = "bottom") 
-ggsave("./4_output/updates/figs/combined_RMSPE_tuning_no_ensemble.png", plot = p1_combined, width = 10, height = 8, unit = "in")
-ggsave("./4_output/updates/figs/combined_RMSPE_tuning_no_ensemble.svg", plot = p1_combined, width = 10, height = 8, unit = "in")
+ggsave("./4_output/combined_RMSPE_tuning_no_ensemble.png", plot = p1_combined, width = 10, height = 8, unit = "in")
+ggsave("./4_output/combined_RMSPE_tuning_no_ensemble.svg", plot = p1_combined, width = 10, height = 8, unit = "in")
 
 # predict hgb - min rmspe by version
 min(rmspe_all_predict_hgb[rmspe_all_predict_hgb$version == "Hemoglobin only"]$rmspe_mean)
