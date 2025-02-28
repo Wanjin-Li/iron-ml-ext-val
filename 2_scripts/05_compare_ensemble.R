@@ -1,3 +1,5 @@
+# This script compares ensemble models developed using top-performing models selected from regular cross-validation.
+
 
 library(ggplot2)
 library(tidyverse)
@@ -19,8 +21,8 @@ em1_results_hgb_only_predict_hgb <- fread("./3_intermediate/ensemble/updates/ens
 top_mods_ensemble1_hgb_only_predict_hgb <- rbind(
   tune_results_all_predict_hgb[modelID %in% names(em1_base_mod_spec_hgb_only_predict_hgb) &  # get names of base models
                      version=="Hemoglobin only", .SD,
-                   .SDcols=c("version", "modelID", paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
-  
+                   .SDcols=c("version", "modelID", 
+                             paste0("rmspe_rpt", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "rmspe_mean")],
   cbind(version="Hemoglobin only",
         modelID="Ensemble1",
         em1_results_hgb_only_predict_hgb))
@@ -133,10 +135,6 @@ top_mods_ensemble2_hgb_ferr_predict_ferr <- rbind(
 
 
 
-
-
-
-
 # PLOTTING TOP MODELS ----
 
 ## Predict hgb ----
@@ -172,7 +170,7 @@ top_mods_ensemb2_hgb_ferr_hgb[, top:=ifelse(rmspe_mean==min(rmspe_mean),"Top",""
 top_mods_ensemb2_hgb_ferr_hgb_plt <- melt(top_mods_ensemb2_hgb_ferr_hgb[,.SD,.SDcols=!c("rmspe_mean")],
                                id.vars=c("version","modelID","top"))
 
-# plot ----
+# Plot ----
 
 min_range_y <- min(min(top_mods_ensemb1_hgb_only_hgb_plt$value), min(top_mods_ensemb2_hgb_only_hgb_plt$value), 
                    min(top_mods_ensemb1_hgb_ferr_hgb_plt$value), min(top_mods_ensemb2_hgb_ferr_hgb_plt$value))
@@ -366,7 +364,7 @@ plot_em2_pred_ferr_hgb_ferr <- ggplot(top_mods_ensemb2_hgb_ferr_ferr_plt, aes(x 
   theme(legend.position = "None")
 
 
-# combine plots ----
+# Combine plots ----
 p2_combined <- ggpubr::ggarrange(plot_em1_pred_hgb_hgb_only, plot_em1_pred_ferr_hgb_only,
                                  plot_em2_pred_hgb_hgb_only, plot_em2_pred_ferr_hgb_only,
                                  plot_em1_pred_hgb_hgb_ferr, plot_em1_pred_ferr_hgb_ferr,
@@ -376,153 +374,18 @@ p2_combined
 ggsave("./4_output/updates/figs/combined_RMSPE_tuning_ensemble.png", plot = p2_combined, width = 12, height = 8, unit = "in")
 
 
+# Extract rmspe of the top models ----
+
+# predict hgb + hgb only: ensemble 1
+fwrite(top_mods_ensemble1_hgb_only_predict_hgb, "./3_intermediate/ensemble/updates/top_mods_assess_ensemble1_hgb_only_predict_hgb_full.csv")
+
+# predict hgb + hgb ferr: ensemble 1
+fwrite(top_mods_ensemble1_hgb_ferr_predict_hgb, "./3_intermediate/ensemble/updates/top_mods_assess_ensemble1_hgb_ferr_predict_hgb_full.csv")
+
+# predict ferr + hgb only: CB.1171
+fwrite(top_mods_ensemble1_hgb_only_predict_ferr, "./3_intermediate/ensemble/updates/top_mods_assess_CB.1171_hgb_only_predict_ferr_full.csv")
+
+# predict ferr + hgb ferr: CB.1222
+fwrite(top_mods_ensemble1_hgb_ferr_predict_ferr, "./3_intermediate/ensemble/updates/top_mods_assess_CB.1222_hgb_ferr_predict_ferr_full.csv")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# CHEN-YANG code -----
-
-## Predict hgb ----
-base_mod_spec_hgb_ferr_predict_hgb <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_ferr_predict_hgb.RDS")
-base_mod_spec_hgb_only_predict_hgb <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_only_predict_hgb.RDS")
-
-ensemble_hgb_ferr_predict_hgb <- fread("./3_intermediate/ensemble/ensemble_assess_results_5XGB1RF_hgb_ferr_predict_hgb_average.csv")
-basemod_hgb_ferr_predict_hgb <- fread("./3_intermediate/ensemble/ensemble_basemods_assess_results_5XGB1RF_hgb_ferr_predict_hgb_average.csv")
-
-ensemble_hgb_only_predict_hgb <- fread("./3_intermediate/ensemble/ensemble_assess_results_5XGB1RF_hgb_only_predict_hgb_average.csv")
-basemod_hgb_only_predict_hgb <- fread("./3_intermediate/ensemble/ensemble_basemods_assess_results_5XGB1RF_hgb_only_predict_hgb_average.csv")
-
-## Predict ferritin ----
-base_mod_spec_hgb_ferr_predict_ferr <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_ferr_predict_ferr.RDS")
-base_mod_spec_hgb_only_predict_ferr <- readRDS("./3_intermediate/ensemble/base_mod_spec_hgb_only_predict_ferr.RDS")
-
-ensemble_hgb_ferr_predict_ferr <- fread("./3_intermediate/ensemble/ensemble_assess_results_5EN1RF_hgb_ferr_predict_ferr_average.csv")
-basemod_hgb_ferr_predict_ferr <- fread("./3_intermediate/ensemble/ensemble_basemods_assess_results_5EN1RF_hgb_ferr_predict_ferr_average.csv")
-
-ensemble_hgb_only_predict_ferr <- fread("./3_intermediate/ensemble/ensemble_assess_results_6RF_hgb_only_predict_ferr_average.csv")
-basemod_hgb_only_predict_ferr <- fread("./3_intermediate/ensemble/ensemble_basemods_assess_results_6RF_hgb_only_predict_ferr_average.csv")
-
-##  check results
-# EPSILON <- 1e-10
-# a<- basemod_hgb_ferr_predict_ferr
-# rmspe <- (sqrt(mean(((a$rmspe_repeat1_fold1.fu_outcome - a$rmspe_repeat1_fold1.prediction) / (a$rmspe_repeat1_fold1.fu_outcome + EPSILON))**2))) * 100
-
-tune_results_all<-fread("./3_intermediate/tune_results/main_model/rmspe_tune_results_all_predict_hgb.csv")
-
-top_mods_ensemble_predict_hgb <- rbind(
-  tune_results_all[modelID %in% names(base_mod_spec_hgb_ferr_predict_hgb) &  # get names of base models
-                     version=="Hemoglobin and Ferritin", .SD,
-                   .SDcols=c("version", "modelID", paste0("rmspe_repeat", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "res_mean")],
-
-  cbind(version="Hemoglobin and Ferritin",
-        modelID="Ensemble",
-        ensemble_hgb_ferr_predict_hgb),
-
-  tune_results_all[modelID %in% names(base_mod_spec_hgb_only_predict_hgb) &
-                     version=="Hemoglobin only", .SD,
-                   .SDcols=c("version", "modelID", paste0("rmspe_repeat", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "res_mean")],
-  cbind(version="Hemoglobin only",
-        modelID="Ensemble",
-        ensemble_hgb_only_predict_hgb)
-)
-
-tune_results_all<-fread("./3_intermediate/tune_results/main_model/rmspe_tune_results_all_predict_ferr.csv")
-
-top_mods_ensemble_predict_ferr <- rbind(
-  tune_results_all[modelID %in% names(base_mod_spec_hgb_ferr_predict_ferr) &  # get names of base models
-                     version=="Hemoglobin and Ferritin", .SD,
-                   .SDcols=c("version", "modelID", paste0("rmspe_repeat", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "res_mean")],
-
-  cbind(version="Hemoglobin and Ferritin",
-        modelID="Ensemble",
-        ensemble_hgb_ferr_predict_ferr),
-
-  tune_results_all[modelID %in% names(base_mod_spec_hgb_only_predict_ferr) &
-                     version=="Hemoglobin only", .SD,
-                   .SDcols=c("version", "modelID", paste0("rmspe_repeat", formatC(ceiling(1:15/5)), "_fold", formatC((1:15-1)%%5 + 1)), "res_mean")],
-  cbind(version="Hemoglobin only",
-        modelID="Ensemble",
-        ensemble_hgb_only_predict_ferr)
-)
-
-# Plotting top models ----
-## Hgb ----
-top_mods_ensemble <- top_mods_ensemble_predict_hgb
-top_mods_ensemble[, top:=ifelse(res_mean==min(res_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
-
-top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("rmspe_mean")],
-                            id.vars=c("version","modelID","top"))
-
-p1 <- ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
-  facet_wrap(vars(version), nrow=2, scales="free_y")+coord_flip()+
-  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8)+
-  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
-             aes(color=top))+
-  stat_summary(fun = mean, geom = "point",
-               position = position_nudge(x = .2, y = 0)) +
-  stat_summary(fun.data = mean_se, geom = "errorbar",
-               position = position_nudge(x = .2, y = 0))+
-  xlab("")+
-  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = scales::percent_format(scale=1))+
-  theme(legend.position = "None")
-
-#ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.svg", width = 6, height = 4.5, unit = "in")
-#ggsave("./4_output/figs/RMSPE_top_models_predict_hgb.png", width = 6, height = 4.5, unit = "in")
-
-## Ferritin ----
-top_mods_ensemble <- top_mods_ensemble_predict_ferr
-top_mods_ensemble[, top:=ifelse(res_mean==min(res_mean),"Top",""), by=version]  # label lowest RMSPE as "Top" model
-
-top_mods_ensemble_plt<-melt(top_mods_ensemble[,.SD,.SDcols=!c("res_mean")],
-                            id.vars=c("version","modelID","top"))
-
-p2 <- ggplot(top_mods_ensemble_plt, aes(x = modelID, y = value, fill=top,))+
-  facet_wrap(vars(version), nrow=2, scales="free_y")+coord_flip()+
-  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8)+
-  geom_point(position = position_jitter(width = .15), size = .5, alpha = 0.8,
-             aes(color=top))+
-  stat_summary(fun = mean, geom = "point",
-               position = position_nudge(x = .2, y = 0)) +
-  stat_summary(fun.data = mean_se, geom = "errorbar",
-               position = position_nudge(x = .2, y = 0))+
-  xlab("")+
-  scale_y_continuous(name="RMSPE for 15 tuning sets (Mean, standard error, and distribution)", labels = scales::percent_format(scale=1))+
-  theme(legend.position = "None")
-
-#ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.svg", width = 6, height = 4.5, unit = "in")
-#ggsave("./4_output/figs/RMSPE_top_models_predict_ferr.png", width = 6, height = 4.5, unit = "in")
-
-
-ggpubr::ggarrange(p1, p2, labels = c("A", "B"), ncol = 2, nrow = 1) 
-ggsave("./4_output/figs/suppfig5_RMSPE_top_models.svg", width = 12, height = 9, unit = "in")
-
-ggsave("./4_output/figs/suppfig5_RMSPE_top_models.png", width = 12, height = 9, unit = "in")
