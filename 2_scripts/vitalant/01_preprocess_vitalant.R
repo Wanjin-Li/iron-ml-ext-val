@@ -172,10 +172,8 @@ df$index_log_ferritin <- log10(df$index_ferritin)
 summary(df$index_log_ferritin)
 
 
-
 ## fu_hgb ----
 df[, `:=`(fu_hgb = c(tail(index_hgb, -1), NA)), by=DonorID]
-
 
 
 ## fu_log_ferritin ----
@@ -302,10 +300,10 @@ fwrite(d.hgb_only, "./3_intermediate/private/vitalant_updates/hgb_only_vitalant.
 
 #### TODO:
 # Create Table of sample sizes (Whole blood donation)
-#                 HGB+ferr at index donation      hgb only at index donation
-# RISE            N = 2625                        N = 3488
-# SANBS           N = 12564                       N = 253537
-# Vitalant        N = 11025                       N = 60402
+#                 hgb+ferr at index donation      hgb only at index donation
+# RISE            N =                             N = 
+# SANBS           N =                             N = 
+# Vitalant        N =                             N = 
 
 
 

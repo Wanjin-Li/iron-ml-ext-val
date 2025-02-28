@@ -89,10 +89,6 @@ hgb[, MQ_ANSWER := ifelse(MQ_ANSWER=="" , NA, MQ_ANSWER)]
 
 table(hgb$MQ_ANSWER, useNA = "ifany")
 
-# remove hgb=NA or hgb=0 or not?
-
-# hgb_valid <- hgb[!is.na(hgb)]
-
 setnames(hgb, "MQ_ANSWER", "hgb")
 hgb$hgb <- as.numeric(hgb$hgb)
 
@@ -158,9 +154,6 @@ ferr <- ferr_valid[, -c("DONATION_TEST_KEY")]
 
 # check duplicates
 length(unique(ferr$DONATION_NUMBER)) == nrow(ferr)  # FALSE indicates duplicated DONATION_NUMBER
-
-str(ferr)
-table(ferr$DONATION_TEST_RESULT)
 
 # recoding ferritin values
 ferr[ferr$DONATION_TEST_RESULT == ">450"]$DONATION_TEST_RESULT <- "450"
