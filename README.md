@@ -77,4 +77,4 @@ Under `2_scripts` directory:
 1. ./12_additional_analysis_sq.R
 1. ./12_additional_analysis0_sq.R
 
-Due to privacy concerns, we are unable tp share the preprocessing scripts for RISE data.
+Due to privacy concerns, we are unable to share the preprocessing scripts for RISE data.
