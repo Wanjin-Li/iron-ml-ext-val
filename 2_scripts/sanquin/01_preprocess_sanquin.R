@@ -28,6 +28,7 @@ df <- df %>% rename(DonorID = KeyID,
 # Subset to whole blood donations only. i.e. exclude deferrals or double rbc donations ----
 NA
 
+
 # Subset to relevant columns for analysis ----
 df <- df[, c("DonorID",
              "Visit_Date",
