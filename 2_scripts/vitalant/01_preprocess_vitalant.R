@@ -53,8 +53,6 @@ fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_d
 ## rbc_loss_last_24_months ----
 
 df <- fread("./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del1.csv")
-# df <- fread("./3_intermediate/private/vitalant_intermediate_to_del1.csv", nrows=10000)  # testing 10000 rows
-
 
 df <- df %>%
   group_by(DonorID) %>%
@@ -144,18 +142,6 @@ df$days_since_last_drbc_loss[is.na(df$days_since_last_drbc_loss)] <- 3650  # rep
 
 # save intermediate df
 fwrite(df, "./3_intermediate/private/vitalant_updates/vitalant_intermediate_to_del4.csv")
-
-# x <- df[, c("DONATION_NUMBER", "DonorID", "Visit_Date")]
-# nrow(x)
-# length(unique(x$DONATION_NUMBER))
-# length(unique(x$DonorID))
-# length(unique(x$Visit_Date))
-#
-# dups <- x[duplicated(x[, c("DonorID", "Visit_Date")])]
-#
-# dups[1]
-#
-# res <- df[df$DonorID == "0000644"]
 
 ## index log ferritin ----
 
