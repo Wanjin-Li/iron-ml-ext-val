@@ -12,12 +12,6 @@ Under `2_scripts` directory:
 1. ./sanbs/00_preprocess_sanbs.R 
 1. ./sanbs/01_preprocess_sanbs.R 
 
-
-### Preprocess US external validation data
-1. ./vitalant/00_preprocess_vitalant.R 
-1. ./vitalant/01_preprocess_vitalant.R 
-
-
 ### Preprocess NL external validation data
 1. ./sanquin/00_sanquin_summary.R
 1. ./sanquin/01_preprocess_sanquin.R
@@ -77,4 +71,4 @@ Under `2_scripts` directory:
 1. ./12_additional_analysis_sq.R
 1. ./12_additional_analysis0_sq.R
 
-Due to privacy concerns, we are unable to share the preprocessing scripts for RISE data.
+Due to privacy concerns, we are unable to share the preprocessing scripts for RISE and US data.
