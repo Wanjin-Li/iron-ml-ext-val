@@ -6,6 +6,7 @@ local
 1_data/private
 2_scripts/test_code
 2_scripts/private
+2_scripts/vitalant
 3_intermediate/tune_results
 3_intermediate/trained_models
 3_intermediate/subgroup_performance
